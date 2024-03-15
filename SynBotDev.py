@@ -6,6 +6,7 @@ import discord
 import requests
 from discord.ext import commands
 from charactersList import charactersLORA
+from LORA_Helper import LORA_List
 
 TOKEN = "MTIxODAwNzA5MDYyMzI4NzQ1Nw.GFiVd9.p4A95gINQD-AjFL6XT7qczYMQQNKWwEyXoRQVM"
 INPUT_CHANEL = 1218052732531773501
@@ -26,7 +27,7 @@ async def on_ready():
 
 @bot.command()
 async def helpMe(ctx):
-    await ctx.message.author.send("You can ask me to generate ST-related images using these keywords: !Syn-generate : FORMAT[landscape|portrait]: prompt with names like JOHN, KATRINA, in UPPERCASE\n**!Syn-generate : landscape: JOHN as a girl at a beach, wearing a bikini**\n**!Syn-generate : portrait: KATRINA wearing a school uniform in a classroom yelling at someone else**\nYou can get a full list of supported ST character names by using the command **!Syn-characters**\nYou can get a list of advanced parameters by calling **!Syn-advanced**")
+    await ctx.message.author.send("You can ask me to generate ST-related images using these keywords: !Syn-generate : FORMAT[landscape|portrait]: prompt with names like JOHN, KATRINA, in UPPERCASE\n**!Syn-generate : landscape: JOHN as a girl at a beach, wearing a bikini**\n**!Syn-generate : portrait: KATRINA wearing a school uniform in a classroom yelling at someone else**\nYou can get a full list of supported ST character names by using the command **!Syn-characters**\nYou can get a list of advanced parameters by calling **!Syn-advanced**\nYou can get a list pre-formated LORAs by calling **!Syn-loras**")
 
 @bot.command()
 async def advanced(ctx):
@@ -35,7 +36,12 @@ async def advanced(ctx):
 @bot.command()
 async def characters(ctx):
     characterNames = "\n".join(charactersLORA.keys())
-    await ctx.message.author.send(characterNames)
+    await ctx.message.author.send(f"Here's a list of ST character names you can use in your prompt. Remeber to write them in uppercase.\n{characterNames}")
+
+@bot.command()
+async def loras(ctx):
+    list = "\n".join(LORA_List.keys())
+    await ctx.message.author.send(f"Here's a list of extra tags that will be converted to some lora preset I've compiled for you.\n{list}")
 
 @bot.command()
 async def generate(ctx):
@@ -84,6 +90,11 @@ async def generate(ctx):
             if key in userPrompt:
                 resumedPrompt = resumedPrompt.replace(key, "**" + key.lower() + "**")
 
+        # V1 make LORAs in BOLD
+        for key in LORA_List.keys():
+            if key in userPrompt:
+                resumedPrompt = resumedPrompt.replace(key, "**" + key.lower() + "**")
+
         # First response
         await inputChannel.send(f"Queuing request from {ctx.message.author} , in " + format + appendHirez + " format")
 
@@ -100,6 +111,12 @@ async def generateImage(ctx, userPrompt, format, hirez=False, seedToUse=-1):
         if key in userPrompt:
             print("Found: " + key)
             fixedPrompt = fixedPrompt.replace(key, charactersLORA[key])
+
+    # Same for LORA Helpers
+    for key in LORA_List.keys():
+        if key in userPrompt:
+            print("Found: " + key)
+            fixedPrompt = fixedPrompt.replace(key, LORA_List[key])
 
     payload = {
         "prompt": "masterpiece, best_quality, extremely detailed, intricate, high_details, sharp_focus , best_anatomy, hires, (colorful), beautiful, 4k, magical, adorable, (extraordinary:0.6), <lora:thickline_fp16:.2>, <lora:neg4all_bdsqlsz_V3.5:1.0>, negative_hand-neg, " + fixedPrompt,
