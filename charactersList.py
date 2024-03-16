@@ -50,5 +50,5 @@ charactersLORA = {
     "ZOEY": "<lora:stZoey2:.4> , stZoey, blonde_hair, green_eyes, medium_hair, single_braid, petite, small_breasts",
     "VANESSA": "<lora:inase_kohane:.7>, inasekohane_tk, long hair, blue_eyes, red_hair, side_ponytail, large breasts, chocker",
     "SYN": "<lora:tos_syn:.5>, demon girl, blond_hair, red_eyes, large_breasts, head wings, low wings, bat wings, pointy ears, thighhighs, high heels, red skirt, purple thighhighs, red high heels, elbow gloves, corser, bare shoulders, strapless, chocker, jewelry, earrings",
-    "SYN-BASE": "<lora:tos_syn:.5>, blond_hair, red_eyes, large_breasts"
+    "SYN-BASE": "<lora:tos_syn:.4>, blond_hair, red_eyes, large_breasts"
 }
