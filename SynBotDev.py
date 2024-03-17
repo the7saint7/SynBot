@@ -7,13 +7,15 @@ import requests
 from discord.ext import commands
 from charactersList import charactersLORA
 from LORA_Helper import LORA_List
-from openPoses import OpenPoseList  
+from openPoses import OpenPoseList, OpenPoseSmartList
+
 
 TOKEN = "MTIxODAwNzA5MDYyMzI4NzQ1Nw.GFiVd9.p4A95gINQD-AjFL6XT7qczYMQQNKWwEyXoRQVM"
 INPUT_CHANEL = 1218052732531773501
 OUTPUT_CHANEL = 1218105385895067668
 DEV_CHANNEL = 1218006498035105934
 HIREZ_SCALE = 1.5
+SD_API_URL = "http://localhost:7860"
 
 env_dev = True
 
@@ -32,7 +34,7 @@ async def helpMe(ctx):
 
 @bot.command()
 async def advanced(ctx):
-    await ctx.message.author.send("Here is a list of extra parameters you can add at the end of your prompt. Make sure you add an extra ':' to separate your prompt from the extra parameters.\n**hirez=true**: Will increase the resolution of the image and make it look sharper. This feature could be disabled if abused as it taxes my PC a lot.\n**seed=654789**: You can enter any seed NUMBER yo want. This way you can change your prompt a little and use the same seed, to see how it changes.\n**batch=4**: will create 4 images, you can use any number between 1 and 4. batch count will be ignore if hirez is True.\nA neat trick, is to NOT use hirez, until you find an image that you like, then you can use the same prompt, pass it the hirez and seed number and it will generate the same image but in higher quality & resolution.\n\nExample:\n**!Syn-generate : portrait: JOHN, TKUNIFORM, a girl wearing a school uniform in a classroom angry, frown, hands_on_own_hips, hand_on_hip, large_breasts, long_hair, ponytail : hirez=true, seed=3955923732**")
+    await ctx.message.author.send("Here is a list of extra parameters you can add at the end of your prompt. Make sure you add an extra ':' to separate your prompt from the extra parameters.\n**hirez=true**: Will increase the resolution of the image and make it look sharper. This feature could be disabled if abused as it taxes my PC a lot.\n**removeBG=true**: Will try to remove the background from the image. Results will vary.\n**seed=654789**: You can enter any seed NUMBER yo want. This way you can change your prompt a little and use the same seed, to see how it changes.\n**batch=4**: will create 4 images, you can use any number between 1 and 4. batch count will be ignore if hirez is True.\nA neat trick, is to NOT use hirez, until you find an image that you like, then you can use the same prompt, pass it the hirez and seed number and it will generate the same image but in higher quality & resolution.\n\nExample:\n**!Syn-generate : portrait: JOHN, TKUNIFORM, a girl wearing a school uniform in a classroom angry, frown, hands_on_own_hips, hand_on_hip, large_breasts, long_hair, ponytail : hirez=true, seed=3955923732**")
 
 @bot.command()
 async def characters(ctx):
@@ -78,6 +80,7 @@ async def generate(ctx):
         seedToUse = -1
         batchCount = 1
         poseName = None
+        removeBG = False
         for paramData in parameters:
             param = paramData.split("=")
             if param[0].strip() == "hirez" and param[1].strip() == "true":
@@ -88,6 +91,8 @@ async def generate(ctx):
                 batchCount = int(param[1].strip())
                 if batchCount < 1 or batchCount > 4:
                     batchCount = 1
+            elif param[0].strip() == "removeBG" and param[1].strip() == "true":
+                removeBG = True
             elif param[0].strip() == "pose":
                 poseName = param[1].strip()
                 userPrompt.replace(poseName, "") #Because the pose name might conflict with the character name later
@@ -121,11 +126,11 @@ async def generate(ctx):
         await inputChannel.send(f"Queuing request from {ctx.message.author} , in " + format + appendHirez + " format")
 
         # The generate image call and callback
-        await generateImage(ctx, userPrompt, format, hirez, seedToUse, batchCount, poseName)
+        await generateImage(ctx, userPrompt, format, hirez, seedToUse, batchCount, poseName, removeBG)
     else:
         await ctx.send(f"{ctx.author.mention} Bad format request. Type **!Syn-helpMe** for instructions")
 
-async def generateImage(ctx, userPrompt, format, hirez=False, seedToUse=-1, batchCount=1, poseName=None):
+async def generateImage(ctx, userPrompt, format, hirez=False, seedToUse=-1, batchCount=1, poseName=None, removeBG=False):
 
     # fix prompt by replacing character names with their LORAs
     fixedPrompt = userPrompt
@@ -164,11 +169,17 @@ async def generateImage(ctx, userPrompt, format, hirez=False, seedToUse=-1, batc
         payload["hr_second_pass_steps"] = 20
     
     if poseName != None:
+
+        # Pick a pose according toe format and "shot"
+        pose_format = "landscape" if int(format.split("x")[0]) > int(format.split("x")[1]) else "portrait"
+        pose_shot = "full_body" if "full_body" in userPrompt else "cowboy_shot"
+        poseImage = OpenPoseSmartList[pose_format][pose_shot][poseName] 
+
         payload["alwayson_scripts"] = {
             "controlnet": {
                 "args": [
                     {
-                        "input_image": OpenPoseList[poseName],
+                        "input_image": poseImage,
                         "model": "control_v11p_sd15_openpose [cab727d4]",
                         "weight": 1,
                         # "width": 512,
@@ -179,12 +190,10 @@ async def generateImage(ctx, userPrompt, format, hirez=False, seedToUse=-1, batc
             }
         }
 
-    url = "http://localhost:7860"
-
     # Sending API call request
     print("Sending request...")
     try:
-        response = requests.post(url=f'{url}/sdapi/v1/txt2img', json=payload)
+        response = requests.post(url=f'{SD_API_URL}/sdapi/v1/txt2img', json=payload)
         response.raise_for_status()
     except requests.exceptions.HTTPError as err:
         raise SystemExit(err)
@@ -211,8 +220,43 @@ async def generateImage(ctx, userPrompt, format, hirez=False, seedToUse=-1, batc
         discordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}.png")
         discordFiles.append(discordFile)
 
+    if removeBG:
+        await removeBackground(discordFiles)
+
     # Send a response with the image attached
     await channel.send(f"{ctx.author.mention} generated this image with prompt:{ctx.message.jump_url} and seed: {seedUsed}", files=discordFiles)
+
+async def removeBackground(discordFiles=None):
+
+    for discordFile in discordFiles:
+        payload = {
+            "input_image": str(base64.b64encode(discordFile.fp.getvalue())),
+            "model": "isnet-anime",
+            "return_mask": False,
+            "alpha_matting": False
+        }
+        print(payload)
+
+        # Sending API call request
+        print("Sending bg remove request...")
+        try:
+            response = requests.post(url=f'{SD_API_URL}/rembg', json=payload)
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as err:
+            raise SystemExit(err)
+        print("BG remove request returned: " + str(response.status_code))
+
+        # Convert response to json
+        r=response.json()   
+        for i in r['images']:
+            # Image is in base64, convert it to a discord.File
+            bytes = io.BytesIO(base64.b64decode(i.split(",",1)[0]))
+            bytes.seek(0)
+            newDiscordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}_transparent.png")
+            discordFiles.append(newDiscordFile)
+
+
+
 
 
 # Run Bot in loop
