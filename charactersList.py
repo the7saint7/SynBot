@@ -34,6 +34,7 @@ charactersLORA = {
     "MAURICE": "<lora:stMaurice:.5>, stMaurice, purple_hair, blue_eyes, short_hair, mature male",
     "MEL": "<lora:stMel:.5>, stMel, blue_hair, short_hair, ahegao, yellow_eyes, petite, large_breasts",
     "MICHELLE": "<lora:stMichelle:.5>, stMichelle, brown_hair, brown_eyes, medium_hair, large_breasts",
+    "NAOMI": " <lora:stNaomi:.5>, short_hair, blue_hair, yellow_eyes, medium_breasts",
     "PHILA": "<lora:stMina+stPhila:.5>, stPhila, blond_hair, gradient_hair, pink_hair, green_eyes, red_eyes, heterochromia, long_hair, wavy hair,  medium_breasts, headband, red_headband, forehead, hair slicked back",
     "MINA": "<lora:stMina+stPhila:.5>, stMina, blond_hair, gradient_hair, pink_hair, green_eyes, red_eyes, heterochromia, long_hair, wavy hair,  medium_breasts, headband, blue_headband, forehead, hair slicked back",
     "RACHEL": "<lora:stRachel:.5>, stRachel, black_hair, long_hair, blue_eyes, red_lips, lips, large_breasts, mature_female",

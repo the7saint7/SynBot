@@ -7,8 +7,7 @@ import requests
 from discord.ext import commands
 from charactersList import charactersLORA
 from LORA_Helper import LORA_List
-from openPoses import OpenPoseList, OpenPoseSmartList
-
+from openPoses import getPose
 
 TOKEN = "MTIxODAwNzA5MDYyMzI4NzQ1Nw.GFiVd9.p4A95gINQD-AjFL6XT7qczYMQQNKWwEyXoRQVM"
 INPUT_CHANEL = 1218052732531773501
@@ -30,7 +29,7 @@ async def on_ready():
 
 @bot.command()
 async def helpMe(ctx):
-    await ctx.message.author.send("You can ask me to generate ST-related images using these keywords: !Syn-generate : FORMAT[landscape|portrait]: prompt with names like JOHN, KATRINA, in UPPERCASE\n**!Syn-generate : landscape: JOHN as a girl at a beach, wearing a bikini**\n**!Syn-generate : portrait: KATRINA wearing a school uniform in a classroom yelling at someone else**\nYou can get a full list of supported ST character names by using the command **!Syn-characters**\nYou can get a list of advanced parameters by calling **!Syn-advanced**\nYou can get a list pre-formated LORAs by calling **!Syn-loras**\nYou can get a list available poses by calling **!Syn-poses**")
+    await ctx.message.author.send("You can ask me to generate ST-related images using these keywords: !Syn-generate : FORMAT[landscape|portrait]: prompt with names like JOHN, KATRINA, in UPPERCASE\n**!Syn-generate : landscape: JOHN as a girl at a beach, wearing a bikini**\n**!Syn-generate : portrait: KATRINA wearing a school uniform in a classroom yelling at someone else**\nYou can get a full list of supported ST character names by using the command **!Syn-characters**\nYou can get a list of advanced parameters by calling **!Syn-advanced**\nYou can get a list pre-formated LORAs by calling **!Syn-loras**\nYou can also check the list of available poses in the **syn-ai-help** forum")
 
 @bot.command()
 async def advanced(ctx):
@@ -46,10 +45,26 @@ async def loras(ctx):
     list = "\n".join(LORA_List.keys())
     await ctx.message.author.send(f"Here's a list of extra tags that will be converted to some lora preset I've compiled for you.\n{list}")
 
+# @bot.command()
+# async def poses(ctx):
+#     availablePoses = "\n".join(OpenPoseList.keys())
+#     await ctx.message.author.send(f"Here's a list of pose names you can use in your prompt. Add them at the end of the prompt, like for **hirez** and **batch**.\nRemember to write them in uppercase.\nPoses can slow down your image generation.\n{availablePoses}")
+
 @bot.command()
-async def poses(ctx):
-    availablePoses = "\n".join(OpenPoseList.keys())
-    await ctx.message.author.send(f"Here's a list of pose names you can use in your prompt. Add them at the end of the prompt, like for **hirez** and **batch**.\nRemember to write them in uppercase.\nPoses can slow down your image generation.\n{availablePoses}")
+async def poseTest(ctx):
+    format = "landscape"
+    shot = "full_body"
+    number = 13
+    availablePoses = getPose(format, shot, str(number))
+
+    if availablePoses == None:
+        await ctx.send(f"Path not found: {format}_{shot}/{number}.png")
+    else:
+        bytes = io.BytesIO(base64.b64decode(availablePoses))
+        bytes.seek(0)
+        discordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}.png")
+        # Send a response with the image attached
+        await ctx.send("Pose image requested", file=discordFile)
 
 @bot.command()
 async def generate(ctx):
@@ -79,8 +94,9 @@ async def generate(ctx):
         hirez = False
         seedToUse = -1
         batchCount = 1
-        poseName = None
+        poseNumber = None
         removeBG = False
+
         for paramData in parameters:
             param = paramData.split("=")
             if param[0].strip() == "hirez" and param[1].strip() == "true":
@@ -94,12 +110,7 @@ async def generate(ctx):
             elif param[0].strip() == "removeBG" and param[1].strip() == "true":
                 removeBG = True
             elif param[0].strip() == "pose":
-                poseName = param[1].strip()
-                userPrompt.replace(poseName, "") #Because the pose name might conflict with the character name later
-                # Double check poseName exist
-                if not poseName in OpenPoseList:
-                    await ctx.send(f"{ctx.author.mention} Bad format request. **{poseName}** is not recognized. Type **!Syn-poses** for a list of available poses.")
-                    return
+                poseNumber = param[1].strip()
 
         # Reset batchCount if hirez
         if hirez and batchCount != 1:
@@ -126,11 +137,11 @@ async def generate(ctx):
         await inputChannel.send(f"Queuing request from {ctx.message.author} , in " + format + appendHirez + " format")
 
         # The generate image call and callback
-        await generateImage(ctx, userPrompt, format, hirez, seedToUse, batchCount, poseName, removeBG)
+        await generateImage(ctx, userPrompt, format, hirez, seedToUse, batchCount, poseNumber, removeBG)
     else:
         await ctx.send(f"{ctx.author.mention} Bad format request. Type **!Syn-helpMe** for instructions")
 
-async def generateImage(ctx, userPrompt, format, hirez=False, seedToUse=-1, batchCount=1, poseName=None, removeBG=False):
+async def generateImage(ctx, userPrompt, format, hirez=False, seedToUse=-1, batchCount=1, poseNumber=None, removeBG=False):
 
     # fix prompt by replacing character names with their LORAs
     fixedPrompt = userPrompt
@@ -168,27 +179,29 @@ async def generateImage(ctx, userPrompt, format, hirez=False, seedToUse=-1, batc
         payload["hr_sampler_name"] = "DPM++ 2M Karras"
         payload["hr_second_pass_steps"] = 20
     
-    if poseName != None:
+    if poseNumber != None:
 
         # Pick a pose according toe format and "shot"
         pose_format = "landscape" if int(format.split("x")[0]) > int(format.split("x")[1]) else "portrait"
         pose_shot = "full_body" if "full_body" in userPrompt else "cowboy_shot"
-        poseImage = OpenPoseSmartList[pose_format][pose_shot][poseName] 
 
-        payload["alwayson_scripts"] = {
-            "controlnet": {
-                "args": [
-                    {
-                        "input_image": poseImage,
-                        "model": "control_v11p_sd15_openpose [cab727d4]",
-                        "weight": 1,
-                        # "width": 512,
-                        # "height": 768,
-                        "pixel_perfect": True
-                    }
-                ]
+        poseImage = getPose(pose_format, pose_shot, poseNumber)
+
+        if poseImage != None:
+            payload["alwayson_scripts"] = {
+                "controlnet": {
+                    "args": [
+                        {
+                            "input_image": poseImage,
+                            "model": "control_v11p_sd15_openpose [cab727d4]",
+                            "weight": 1,
+                            # "width": 512,
+                            # "height": 768,
+                            "pixel_perfect": True
+                        }
+                    ]
+                }
             }
-        }
 
     # Sending API call request
     print("Sending request...")
