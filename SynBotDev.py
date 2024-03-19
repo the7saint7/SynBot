@@ -2,12 +2,14 @@ import io
 import copy
 import json
 import base64
+import aiohttp
 import discord
 import requests
 from discord.ext import commands
 from charactersList import charactersLORA
 from LORA_Helper import LORA_List
-from openPoses import getPose
+from openPoses import getPose, getLewdPose
+from SynBotMain import SynBotManager
 
 TOKEN = "MTIxODAwNzA5MDYyMzI4NzQ1Nw.GFiVd9.p4A95gINQD-AjFL6XT7qczYMQQNKWwEyXoRQVM"
 INPUT_CHANEL = 1218052732531773501
@@ -16,10 +18,10 @@ DEV_CHANNEL = 1218006498035105934
 HIREZ_SCALE = 1.5
 SD_API_URL = "http://localhost:7860"
 
-env_dev = True
+env_dev = False
 
 # Discord Bot
-bot = commands.Bot(command_prefix="!Syn-", intents=discord.Intents.all())
+bot = SynBotManager(command_prefix="!Syn-", intents=discord.Intents.all())
 
 @bot.event
 async def on_ready():
@@ -95,6 +97,7 @@ async def generate(ctx):
         seedToUse = -1
         batchCount = 1
         poseNumber = None
+        lewdPoseNumber = None
         removeBG = False
 
         for paramData in parameters:
@@ -111,6 +114,8 @@ async def generate(ctx):
                 removeBG = True
             elif param[0].strip() == "pose":
                 poseNumber = param[1].strip()
+            elif param[0].strip() == "lewdPose":
+                lewdPoseNumber = param[1].strip()
 
         # Reset batchCount if hirez
         if hirez and batchCount != 1:
@@ -134,14 +139,15 @@ async def generate(ctx):
                 resumedPrompt = resumedPrompt.replace(key, "**" + key.lower() + "**")
 
         # First response
-        await inputChannel.send(f"Queuing request from {ctx.message.author} , in " + format + appendHirez + " format")
+        qsizeCount = bot.queue.qsize() + 1
+        await inputChannel.send(f"Queuing request from {ctx.message.author} , in " + format + appendHirez + " format (" + str(qsizeCount) + " in queue)")
 
         # The generate image call and callback
-        await generateImage(ctx, userPrompt, format, hirez, seedToUse, batchCount, poseNumber, removeBG)
+        await bot.queue.put(await generateImage(ctx, userPrompt, format, hirez, seedToUse, batchCount, poseNumber, lewdPoseNumber, removeBG))
     else:
         await ctx.send(f"{ctx.author.mention} Bad format request. Type **!Syn-helpMe** for instructions")
 
-async def generateImage(ctx, userPrompt, format, hirez=False, seedToUse=-1, batchCount=1, poseNumber=None, removeBG=False):
+async def generateImage(ctx, userPrompt, format, hirez=False, seedToUse=-1, batchCount=1, poseNumber=None, lewdPoseNumber=None, removeBG=False):
 
     # fix prompt by replacing character names with their LORAs
     fixedPrompt = userPrompt
@@ -179,65 +185,69 @@ async def generateImage(ctx, userPrompt, format, hirez=False, seedToUse=-1, batc
         payload["hr_sampler_name"] = "DPM++ 2M Karras"
         payload["hr_second_pass_steps"] = 20
     
+    poseImage = None
     if poseNumber != None:
-
         # Pick a pose according toe format and "shot"
         pose_format = "landscape" if int(format.split("x")[0]) > int(format.split("x")[1]) else "portrait"
         pose_shot = "full_body" if "full_body" in userPrompt else "cowboy_shot"
-
         poseImage = getPose(pose_format, pose_shot, poseNumber)
 
-        if poseImage != None:
-            payload["alwayson_scripts"] = {
-                "controlnet": {
-                    "args": [
-                        {
-                            "input_image": poseImage,
-                            "model": "control_v11p_sd15_openpose [cab727d4]",
-                            "weight": 1,
-                            # "width": 512,
-                            # "height": 768,
-                            "pixel_perfect": True
-                        }
-                    ]
-                }
+    if lewdPoseNumber != None:
+        # Pick a pose according toe format and "shot"
+        poseImage = getLewdPose(lewdPoseNumber)
+
+    if poseImage != None:
+        payload["alwayson_scripts"] = {
+            "controlnet": {
+                "args": [
+                    {
+                        "input_image": poseImage,
+                        "model": "control_v11p_sd15_openpose [cab727d4]",
+                        "weight": 1,
+                        # "width": 512,
+                        # "height": 768,
+                        "pixel_perfect": True
+                    }
+                ]
             }
+        }
 
     # Sending API call request
     print("Sending request...")
-    try:
-        response = requests.post(url=f'{SD_API_URL}/sdapi/v1/txt2img', json=payload)
-        response.raise_for_status()
-    except requests.exceptions.HTTPError as err:
-        raise SystemExit(err)
-    print("Request returned: " + str(response.status_code))
+    async with aiohttp.ClientSession() as session:
+            async with session.post(url=f'{SD_API_URL}/sdapi/v1/txt2img', json=payload) as response:
+                try:
+                    response.raise_for_status()
+                except requests.exceptions.HTTPError as err:
+                    raise SystemExit(err)
+                print("Request returned: " + str(response.status))
 
-    # Making sure we respond in the right channel
-    channel_id = DEV_CHANNEL if env_dev else OUTPUT_CHANEL
-    channel = bot.get_channel(channel_id)
+                # Making sure we respond in the right channel
+                channel_id = DEV_CHANNEL if env_dev else OUTPUT_CHANEL
+                channel = bot.get_channel(channel_id)
 
-    # Convert response to json
-    r=response.json()   
+                # Convert response to json
+                r = await response.json()
 
-    # Extract the seed that was used to generate the image
-    info = r["info"]
-    infoJson = json.loads(info)
-    seedUsed = infoJson["seed"]
+                # Extract the seed that was used to generate the image
+                info = r["info"]
+                infoJson = json.loads(info)
+                seedUsed = infoJson["seed"]
 
-    # looping response to get actual image
-    discordFiles = []
-    for i in r['images']:
-        # Image is in base64, convert it to a discord.File
-        bytes = io.BytesIO(base64.b64decode(i.split(",",1)[0]))
-        bytes.seek(0)
-        discordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}.png")
-        discordFiles.append(discordFile)
+                # looping response to get actual image
+                discordFiles = []
+                for i in r['images']:
+                    # Image is in base64, convert it to a discord.File
+                    bytes = io.BytesIO(base64.b64decode(i.split(",",1)[0]))
+                    bytes.seek(0)
+                    discordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}.png")
+                    discordFiles.append(discordFile)
 
-    if removeBG:
-        await removeBackground(discordFiles)
+                if removeBG:
+                    await removeBackground(discordFiles)
 
-    # Send a response with the image attached
-    await channel.send(f"{ctx.author.mention} generated this image with prompt:{ctx.message.jump_url} and seed: {seedUsed}", files=discordFiles)
+                # Send a response with the image attached
+                await channel.send(f"{ctx.author.mention} generated this image with prompt:{ctx.message.jump_url} and seed: {seedUsed}", files=discordFiles)
 
 async def removeBackground(discordFiles=None):
 

@@ -15,5 +15,9 @@ LORA_List = {
     "POV-CUNNILINGUS": "<lora:Cunnilingus:.75>, tongue, looking at viewer,  cunnilingus, oral, female pov, pussy, spread legs, licking",
     "POV-CUNNILINGUS2": "<lora:qqq-cunnilingus_pov-v1:.75>, tongue, looking at viewer,  cunnilingus, oral, female pov, pussy, spread legs, licking",
     "MASTURBATION": "<lora:Arched back orgasm:1>, arched back, full-face blush, sweat, moaning, open mouth, masturbation, female masturbation, open mouth, aroused",
-    "FURRY": "cat ears, cat tail, cat girl, slit pupils, fur, furry, <lora:lora_Furry_female:.5>"
+    "FURRY": "cat ears, cat tail, cat girl, slit pupils, fur, furry, <lora:lora_Furry_female:.5>",
+    "MULTIPLE-GIRLS": "<lora:harem_4:1>, multiple girls, group picture",
+    "SELFIE": " <lora:Selfie_FefaAIart:1>, selfie, pov, reaching_towards_viewer",
+    "DILDO-MAST": "<lora:masturbation_with_dildo v1.1:1> , dildomasturbation, vaginal object insertion, female masturbation, object insertion, masturbation, nsfw, spread legs",
+    "LAP-PILLOW-POV": "<lora:hizam_v02a:1>, hizam, from below"
 }

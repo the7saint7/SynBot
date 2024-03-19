@@ -7,7 +7,7 @@ import requests
 from discord.ext import commands
 from charactersList import charactersLORA
 from LORA_Helper import LORA_List
-from openPoses import getPose
+from openPoses import getPose, getLewdPose
 
 TOKEN = "MTIxODAwNzA5MDYyMzI4NzQ1Nw.GFiVd9.p4A95gINQD-AjFL6XT7qczYMQQNKWwEyXoRQVM"
 INPUT_CHANEL = 1218052732531773501
@@ -95,6 +95,7 @@ async def generate(ctx):
         seedToUse = -1
         batchCount = 1
         poseNumber = None
+        lewdPoseNumber = None
         removeBG = False
 
         for paramData in parameters:
@@ -111,6 +112,8 @@ async def generate(ctx):
                 removeBG = True
             elif param[0].strip() == "pose":
                 poseNumber = param[1].strip()
+            elif param[0].strip() == "lewdPose":
+                lewdPoseNumber = param[1].strip()
 
         # Reset batchCount if hirez
         if hirez and batchCount != 1:
@@ -137,11 +140,11 @@ async def generate(ctx):
         await inputChannel.send(f"Queuing request from {ctx.message.author} , in " + format + appendHirez + " format")
 
         # The generate image call and callback
-        await generateImage(ctx, userPrompt, format, hirez, seedToUse, batchCount, poseNumber, removeBG)
+        await generateImage(ctx, userPrompt, format, hirez, seedToUse, batchCount, poseNumber, lewdPoseNumber, removeBG)
     else:
         await ctx.send(f"{ctx.author.mention} Bad format request. Type **!Syn-helpMe** for instructions")
 
-async def generateImage(ctx, userPrompt, format, hirez=False, seedToUse=-1, batchCount=1, poseNumber=None, removeBG=False):
+async def generateImage(ctx, userPrompt, format, hirez=False, seedToUse=-1, batchCount=1, poseNumber=None, lewdPoseNumber=None, removeBG=False):
 
     # fix prompt by replacing character names with their LORAs
     fixedPrompt = userPrompt
@@ -179,29 +182,32 @@ async def generateImage(ctx, userPrompt, format, hirez=False, seedToUse=-1, batc
         payload["hr_sampler_name"] = "DPM++ 2M Karras"
         payload["hr_second_pass_steps"] = 20
     
+    poseImage = None
     if poseNumber != None:
-
         # Pick a pose according toe format and "shot"
         pose_format = "landscape" if int(format.split("x")[0]) > int(format.split("x")[1]) else "portrait"
         pose_shot = "full_body" if "full_body" in userPrompt else "cowboy_shot"
-
         poseImage = getPose(pose_format, pose_shot, poseNumber)
 
-        if poseImage != None:
-            payload["alwayson_scripts"] = {
-                "controlnet": {
-                    "args": [
-                        {
-                            "input_image": poseImage,
-                            "model": "control_v11p_sd15_openpose [cab727d4]",
-                            "weight": 1,
-                            # "width": 512,
-                            # "height": 768,
-                            "pixel_perfect": True
-                        }
-                    ]
-                }
+    if lewdPoseNumber != None:
+        # Pick a pose according toe format and "shot"
+        poseImage = getLewdPose(lewdPoseNumber)
+
+    if poseImage != None:
+        payload["alwayson_scripts"] = {
+            "controlnet": {
+                "args": [
+                    {
+                        "input_image": poseImage,
+                        "model": "control_v11p_sd15_openpose [cab727d4]",
+                        "weight": 1,
+                        # "width": 512,
+                        # "height": 768,
+                        "pixel_perfect": True
+                    }
+                ]
             }
+        }
 
     # Sending API call request
     print("Sending request...")
