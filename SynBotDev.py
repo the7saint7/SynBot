@@ -1,4 +1,5 @@
 import io
+import sys
 import json
 import base64
 import asyncio
@@ -13,7 +14,9 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-env_dev = True
+env_dev = False
+if len(sys.argv) > 1:
+    env_dev = True if sys.argv[1] == "dev" else False
 
 # Discord Bot
 bot = SynBotManager(command_prefix="!Syn-", intents=discord.Intents.all())
@@ -153,8 +156,20 @@ async def newOutfit(ctx):
         elif character == "john":
             characterPrompt = "<lora:stJohn:.5>, stJohn, black_hair, black_eyes, "
 
+    width = 728
+    height = 728
+    if "hirez" in jsonData:
+        width = 856
+        height = 856
 
     # Prepare image paths and stop if image is missing
+    if not "outfit" in jsonData:
+        await ctx.send(f"{ctx.author.mention} -> 'outfit' parameter missing.")
+        return
+    if not "character" in jsonData:
+        await ctx.send(f"{ctx.author.mention} -> 'character' parameter missing.")
+        return
+
     baseImagePath = f"./sprites/{character}/{jsonData['outfit']}.png"
     if not os.path.exists(baseImagePath):
         await ctx.send(f"{ctx.author.mention} -> {baseImagePath} does not exist.")
@@ -183,7 +198,7 @@ async def newOutfit(ctx):
         "batch_size": 1, 
         "steps": 30, 
         "cfg_scale": 7, 
-        "width": 728, "height": 728, 
+        "width": width, "height": height, 
         "prompt": "masterpiece, best_quality, extremely detailed, intricate, high_details, sharp_focus , best_anatomy, hires, (colorful), beautiful, 4k, magical, adorable, (extraordinary:0.6), (((simple_background))), (((white_background))), multiple_views, reference_sheet, " + characterPrompt + prompt, 
         "negative_prompt": "paintings, sketches, fingers, (worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality, ((monochrome)), ((grayscale)), skin spots, acnes, skin blemishes, age spot, (outdoor:1.6), backlight,(ugly:1.331), (duplicate:1.331), (morbid:1.21), (mutilated:1.21), (tranny:1.331), mutated hands, (poorly drawn hands:1.5), blurry, (bad anatomy:1.21), (bad proportions:1.331), extra limbs, (disfigured:1.331), lowers, bad hands, missing fingers, extra digit", 
         "sampler_index": "DPM++ 2M Karrass"
@@ -215,7 +230,7 @@ async def newOutfit(ctx):
             ]
         }
     }
-
+    await ctx.send(f"Creating new outfit for {character}, requested by {ctx.message.author}.")
     await bot.queue.put(asyncio.create_task(sendPayload(ctx, payload, "sdapi/v1/img2img", f"{ctx.author.mention} generated this outfit for {character}")))
 
 async def sendPayload(ctx, payload, apiPath, formatedResponse):

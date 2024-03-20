@@ -1,4 +1,5 @@
 import io
+import sys
 import json
 import base64
 import asyncio
@@ -14,6 +15,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 env_dev = False
+if len(sys.argv) > 1:
+    env_dev = True if sys.argv[1] == "dev" else False
 
 # Discord Bot
 bot = SynBotManager(command_prefix="!Syn-", intents=discord.Intents.all())
@@ -148,19 +151,56 @@ async def newOutfit(ctx):
         await ctx.send(f"{ctx.author.mention} -> Missing 'character' parameter.")
         return
     else:
-        if character == "sayaka":
-            characterPrompt = "<lora:stsayaka:.5>, stSayaka, pink_hair, blue_eyes, large_breasts, "
-        elif character == "john":
-            characterPrompt = "<lora:stJohn:.5>, stJohn, black_hair, black_eyes, "
 
+        # This helps (a little) with keeping the original pose
+        if character == "sayaka":
+            characterPrompt = "<lora:stsayaka:.5>, stSayaka, "
+        elif character == "john":
+            characterPrompt = "<lora:stJohn:.5>, stJohn, "
+        elif character == "allison":
+            characterPrompt = "<lora:stAllison2:.5>,  stAllison2, "
+
+    width = 728
+    height = 728
+    if "hirez" in jsonData:
+        width = 856
+        height = 856
+
+    batch = jsonData["batch"] if "batch" in jsonData else 1
+    if batch < 1 or batch > 4:
+        batch = 1
+    
+    # lower rez when batch is not 1 or SD will be too slow. Use the returned seed to hirez the outfit you liked
+    if batch > 1:
+        width = 512
+        height = 512
+    
+    seedToUse = jsonData["seed"] if "seed" in jsonData else -1
+    removeBG = True if "removeBG" in jsonData else False
 
     # Prepare image paths and stop if image is missing
-    baseImagePath = f"./sprites/{character}/{jsonData['outfit']}.png"
+    if not "outfit" in jsonData:
+        await ctx.send(f"{ctx.author.mention} -> 'outfit' parameter missing.")
+        return
+    if not "character" in jsonData:
+        await ctx.send(f"{ctx.author.mention} -> 'character' parameter missing.")
+        return
+    outfit = jsonData["outfit"]
+
+    # might need to use custom mask
+    mask = jsonData["mask"] if "mask" in jsonData else "mask"
+
+    #Lets help the users by making sure the right mask image is being used in special cases
+    if character == "allison" and outfit == "gym":
+        mask = "gym_mask"
+
+
+    baseImagePath = f"./sprites/{character}/{outfit}.png"
     if not os.path.exists(baseImagePath):
         await ctx.send(f"{ctx.author.mention} -> {baseImagePath} does not exist.")
         return           
     
-    maskImagePath = f"./sprites/{character}/mask.png"
+    maskImagePath = f"./sprites/{character}/{mask}.png"
     if not os.path.exists(maskImagePath):
         await ctx.send(f"{ctx.author.mention} -> {maskImagePath} does not exist.")
         return
@@ -180,13 +220,14 @@ async def newOutfit(ctx):
         "inpaint_full_res_padding": 32, 
         "inpainting_mask_invert": 0,                #choices=['Inpaint masked', 'Inpaint not masked']
         "sampler_name": "DPM++ 2M Karras", 
-        "batch_size": 1, 
-        "steps": 30, 
+        "batch_size": batch, 
+        "steps": 30,
+        "seed": seedToUse, 
         "cfg_scale": 7, 
-        "width": 728, "height": 728, 
+        "width": width, "height": height, 
         "prompt": "masterpiece, best_quality, extremely detailed, intricate, high_details, sharp_focus , best_anatomy, hires, (colorful), beautiful, 4k, magical, adorable, (extraordinary:0.6), (((simple_background))), (((white_background))), multiple_views, reference_sheet, " + characterPrompt + prompt, 
         "negative_prompt": "paintings, sketches, fingers, (worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality, ((monochrome)), ((grayscale)), skin spots, acnes, skin blemishes, age spot, (outdoor:1.6), backlight,(ugly:1.331), (duplicate:1.331), (morbid:1.21), (mutilated:1.21), (tranny:1.331), mutated hands, (poorly drawn hands:1.5), blurry, (bad anatomy:1.21), (bad proportions:1.331), extra limbs, (disfigured:1.331), lowers, bad hands, missing fingers, extra digit", 
-        "sampler_index": "DPM++ 2M Karrass"
+        "sampler_index": "DPM++ 2M Karras"
     }
 
     # Add controlNet OpenPose
@@ -215,10 +256,10 @@ async def newOutfit(ctx):
             ]
         }
     }
-
+    await ctx.send(f"Creating new outfit for {character}, requested by {ctx.message.author}.")
     await bot.queue.put(asyncio.create_task(sendPayload(ctx, payload, "sdapi/v1/img2img", f"{ctx.author.mention} generated this outfit for {character}")))
 
-async def sendPayload(ctx, payload, apiPath, formatedResponse):
+async def sendPayload(ctx, payload, apiPath, formattedResponse, removeBG=True, removeControlNetImages=True):
         
         # Sending API call request
         print("Sending request...")
@@ -241,19 +282,60 @@ async def sendPayload(ctx, payload, apiPath, formatedResponse):
         # looping response to get actual image
         discordFiles = []
         for i in r['images']:
+
+            # Skip ControlNet images
+            if removeControlNetImages:
+                if r["images"].index(i) >= len(r["images"]) -2:
+                    pass
+
+            # Remove background
+            i = await removeBackground(i) if removeBG else i
+
             # Image is in base64, convert it to a discord.File
             bytes = io.BytesIO(base64.b64decode(i.split(",",1)[0]))
             bytes.seek(0)
             discordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}.png")
             discordFiles.append(discordFile)
 
+
+        # if removeBG:
+        #     await removeBackground(discordFiles)
+
+
         output_channel_id = int(os.getenv("DEV_CHANNEL")) if env_dev else int(os.getenv("OUTPUT_CHANEL"))
         outputChannel = bot.get_channel(output_channel_id)
 
         # Send a response with the image attached
-        await outputChannel.send(formatedResponse, files=discordFiles)
+        await outputChannel.send(formattedResponse + " (seed: " + str(responseSeedUsed) + ")", files=discordFiles)
 
 
+async def removeBackground(discordFile):
+
+    # for discordFile in discordFiles:
+    payload = {
+        "input_image": discordFile,
+        "model": "isnet-anime"
+    }
+
+    # Sending API call request
+    baseURL = os.getenv("SD_API_URL")
+    print("Sending bg remove request...")
+    try:
+        response = requests.post(url=f'{baseURL}/rembg', json=payload)
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as err:
+        raise SystemExit(err)
+    print("BG remove request returned: " + str(response.status_code))
+
+    # Convert response to json
+    r=response.json()
+    return r['image']
+    # if i != None:
+    #     # Image is in base64, convert it to a discord.File
+    #     bytes = io.BytesIO(base64.b64decode(i))
+    #     bytes.seek(0)
+    #     newDiscordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}_transparent.png")
+    #     discordFiles.insert(0, newDiscordFile)
 
 # Run Bot in loop
 bot.run(os.getenv("TOKEN"))

@@ -64,7 +64,6 @@ class SynBotPrompt:
             jsonData = json.loads(jsonStr)
 
             # Required parameters
-
             if "prompt" in jsonData:
                 self.userPrompt = jsonData["prompt"]
             else:
@@ -76,7 +75,8 @@ class SynBotPrompt:
             else:
                 self.isValid = False
                 return
-            if self.formatStr != "landscape" and format != "portrait":
+            if self.formatStr != "landscape" and self.formatStr != "portrait":
+                print("non conform format: " + self.formatStr)
                 self.isValid = False
                 return
             
@@ -89,6 +89,7 @@ class SynBotPrompt:
             if "seed" in jsonData: self.seedToUse = jsonData["seed"]
             if "pose" in jsonData: self.poseNumber = jsonData["pose"]
             if "lewdPose" in jsonData: self.lewdPoseNumber = jsonData["lewdPose"]
+            if "removeBG" in jsonData: self.removeBG = jsonData["lewdPose"] == "true"
 
         else:
             #Syn-generate (OLD WAY)
@@ -127,6 +128,34 @@ class SynBotPrompt:
 
 
 
+    def removeBackground(discordFiles=None):
+
+        for discordFile in discordFiles:
+            payload = {
+                "input_image": str(base64.b64encode(discordFile.fp.getvalue())),
+                "model": "isnet-anime",
+                "return_mask": False,
+                "alpha_matting": False
+            }
+            print(payload)
+
+            # Sending API call request
+            print("Sending bg remove request...")
+            try:
+                response = requests.post(url=f'{SD_API_URL}/rembg', json=payload)
+                response.raise_for_status()
+            except requests.exceptions.HTTPError as err:
+                raise SystemExit(err)
+            print("BG remove request returned: " + str(response.status_code))
+
+            # Convert response to json
+            r=response.json()   
+            for i in r['images']:
+                # Image is in base64, convert it to a discord.File
+                bytes = io.BytesIO(base64.b64decode(i.split(",",1)[0]))
+                bytes.seek(0)
+                newDiscordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}_transparent.png")
+                discordFiles.append(newDiscordFile)
 
     def generateImage(self):
         
@@ -198,8 +227,6 @@ class SynBotPrompt:
             }
         ######################### END PAYLOAD BUILDING #####################################
             
-        print(payload)
-
         # Sending API call request
         print("Sending request...")
         try:
@@ -227,42 +254,13 @@ class SynBotPrompt:
             discordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}.png")
             discordFiles.append(discordFile)
 
-        # if self.removeBG:
-        #     await removeBackground(discordFiles)
+        if self.removeBG:
+            self.removeBackground(discordFiles)
 
         # Send a response with the image attached
         loop = asyncio.get_event_loop() # This, with create_Task, symulate the "await" command
         loop.create_task(self.outputChanel.send(f"{self.ctx.author.mention} generated this image with prompt:{self.ctx.message.jump_url} and seed: {responseSeedUsed}", files=discordFiles))
         
-
-    # async def removeBackground(discordFiles=None):
-
-    #     for discordFile in discordFiles:
-    #         payload = {
-    #             "input_image": str(base64.b64encode(discordFile.fp.getvalue())),
-    #             "model": "isnet-anime",
-    #             "return_mask": False,
-    #             "alpha_matting": False
-    #         }
-    #         print(payload)
-
-    #         # Sending API call request
-    #         print("Sending bg remove request...")
-    #         try:
-    #             response = requests.post(url=f'{SD_API_URL}/rembg', json=payload)
-    #             response.raise_for_status()
-    #         except requests.exceptions.HTTPError as err:
-    #             raise SystemExit(err)
-    #         print("BG remove request returned: " + str(response.status_code))
-
-    #         # Convert response to json
-    #         r=response.json()   
-    #         for i in r['images']:
-    #             # Image is in base64, convert it to a discord.File
-    #             bytes = io.BytesIO(base64.b64decode(i.split(",",1)[0]))
-    #             bytes.seek(0)
-    #             newDiscordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}_transparent.png")
-    #             discordFiles.append(newDiscordFile)
 
 
 
