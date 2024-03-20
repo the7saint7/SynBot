@@ -3,7 +3,8 @@ charactersLORA = {
     "ALLISON": "<lora:stAllison2:.5>,  stAllison2, huge_breasts, blonde_hair, purple_eyes, braids, hairpin",
     "AMY": "<lora:stAmy:.5>, stAmy, 1girl, short_hair, blue_eyes, brown_hair, flat_chest, bangs, eyebrows_visible_through_hair,  hair_between_eyes, neck_ribbon, bow",
     "ANUJA": "<lora:stAnuja:.5> , stAnuja, indian, 1girl, forehead, green_hair, red_eyes, long_hair,single braid, dark_skinned_female",
-    "AUDREY": "<lora:stAudrey:.5>, stAudrey, person, long_hair, blue_eyes, brown_hair, multicolored_hair, two_side_up, medium_breasts, hair intakes, sidelocks",
+    "AUDREY-NORMAL": "<lora:stAudrey:.5>, stAudrey, person, long_hair, blue_eyes, brown_hair, multicolored_hair, two_side_up, medium_breasts, hair intakes, sidelocks",
+    "AUDREY-IDOL": "<lora:stAudreyIdol:.5> , stAudreyIdol, 1girl, breasts, choker, cleavage, collarbone, flower, frills, gloves, green eyes, hair flower, hair ornament, large breasts, pink hair, short hair, skirt, thighhighs, white gloves",
     "BRAD": "<lora:stBrad:.5>, stBrad, blonde_hair, red_eyes, muscular, abs, spiked_hair, earrings",
     "BREE": "<lora:stBradGB:.5>, stBradGB, blonde_hair, red_eyes, short_hair, forehead, hairpin, petite, small_breasts",
     "CARRIE": "<lora:stCarrie:.5>, stCarrie, brown_hair, red_eyes, medium_breasts, twintails",
@@ -58,7 +59,7 @@ charactersLORA = {
     "CATRINA": "<lora:tosCatrina:.5> , cat ears, cat tail, cat girl, slit pupils, fur, furry,  calico, <lora:lora_Furry_female:.5>",
     "PUNKJANE": "<lora:tosJanePunk2:.5>, tosJanePunk, short_hair, hair_slickedback, purple_streak, black_hair, black_eyes, streaked_hair, medium_breasts",
     "LILIANA": "<lora:tosLiliana:.5>, tosLiliana, black_hair, blue_eyes, hair slicked back, forehead",
-    "NIKKI": "<lora:tosNikki3:.5>, dark_skin, dark_skinned_female, short_hair, undercut, streaked_hair, black_hair, purple streaked_hair, blue_eyes, medium_breasts",
+    "NIKKI": "<lora:tosNikki3:.75>, dark_skin, dark_skinned_female, short_hair, undercut, streaked_hair, black_hair, purple streaked_hair, blue_eyes, medium_breasts",
     "RIRISA": "<lora:tosRirisa:.5>, tosRirisa, blonde_hair, long_hair, straight_hair, forehead, hair_ornament, large_breasts, shortstack, yellow_eyes, pink_tips",
-    "YOUKO": "<lora:tosYouko:.5> , tosYouko, blonde_hair, purple_eyes, large_breasts, tan, long_hair, wavy_hair,  earrings, bracelet,  forehead"
+    "YOUKO": "<lora:tosYouko:.75> , tosYouko, blonde_hair, purple_eyes, large_breasts, tan, long_hair, wavy_hair,  earrings, bracelet,  forehead"
 }

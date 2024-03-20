@@ -1,29 +1,26 @@
 import io
-import copy
 import json
 import base64
+import asyncio
 import discord
 import requests
 from discord.ext import commands
 from charactersList import charactersLORA
 from LORA_Helper import LORA_List
-from openPoses import getPose, getLewdPose
+from openPoses import getPose, getLewdPose, getImageAtPath
+from SynBotMain import SynBotManager, SynBotPrompt
+import os
+from dotenv import load_dotenv
 
-TOKEN = "MTIxODAwNzA5MDYyMzI4NzQ1Nw.GFiVd9.p4A95gINQD-AjFL6XT7qczYMQQNKWwEyXoRQVM"
-INPUT_CHANEL = 1218052732531773501
-OUTPUT_CHANEL = 1218105385895067668
-DEV_CHANNEL = 1218006498035105934
-HIREZ_SCALE = 1.5
-SD_API_URL = "http://localhost:7860"
-
+load_dotenv()
 env_dev = False
 
 # Discord Bot
-bot = commands.Bot(command_prefix="!Syn-", intents=discord.Intents.all())
+bot = SynBotManager(command_prefix="!Syn-", intents=discord.Intents.all())
 
 @bot.event
 async def on_ready():
-    channel_id = DEV_CHANNEL if env_dev else INPUT_CHANEL
+    channel_id = int(os.getenv("DEV_CHANNEL")) if env_dev else int(os.getenv("INPUT_CHANEL"))
     channel = bot.get_channel(channel_id)
     await channel.send("Syn AI is online and ready to generate some images. Type **!Syn-helpMe** for instructions!")
 
@@ -45,238 +42,218 @@ async def loras(ctx):
     list = "\n".join(LORA_List.keys())
     await ctx.message.author.send(f"Here's a list of extra tags that will be converted to some lora preset I've compiled for you.\n{list}")
 
-# @bot.command()
-# async def poses(ctx):
-#     availablePoses = "\n".join(OpenPoseList.keys())
-#     await ctx.message.author.send(f"Here's a list of pose names you can use in your prompt. Add them at the end of the prompt, like for **hirez** and **batch**.\nRemember to write them in uppercase.\nPoses can slow down your image generation.\n{availablePoses}")
-
-@bot.command()
-async def poseTest(ctx):
-    format = "landscape"
-    shot = "full_body"
-    number = 13
-    availablePoses = getPose(format, shot, str(number))
-
-    if availablePoses == None:
-        await ctx.send(f"Path not found: {format}_{shot}/{number}.png")
-    else:
-        bytes = io.BytesIO(base64.b64decode(availablePoses))
-        bytes.seek(0)
-        discordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}.png")
-        # Send a response with the image attached
-        await ctx.send("Pose image requested", file=discordFile)
-
 @bot.command()
 async def generate(ctx):
 
     # Select proper channel to handle requests
-    channel_id = DEV_CHANNEL if env_dev else INPUT_CHANEL
+    input_channel_id = int(os.getenv("DEV_CHANNEL")) if env_dev else int(os.getenv("INPUT_CHANEL"))
 
     # Ignore generate request if it's not coming from the right channel
-    inputChannel = bot.get_channel(channel_id)
+    inputChannel = bot.get_channel(input_channel_id)
     if ctx.channel != inputChannel:
         print ("Request made in wrong channel")
         return
 
-    # The message that was sent
-    message = str(ctx.message.content)
+    output_channel_id = int(os.getenv("DEV_CHANNEL")) if env_dev else int(os.getenv("OUTPUT_CHANEL"))
+    outputChannel = bot.get_channel(output_channel_id)
 
-    # Split the message with our delimiter - :
-    # !Syn-generate : FORMAT : PROMPT : EXTRA-PARAMETERS
-    data = message.split(":")
-    if len(data) >= 3:
-        # Ignore data[0]
-        format = "640x360" if data[1].strip() == "landscape" else "360x640"
-        userPrompt = data[2]
-        parameters = data[3].split(",") if len(data) > 3 else []
-
-        # Check for parameters, if any
-        hirez = False
-        seedToUse = -1
-        batchCount = 1
-        poseNumber = None
-        lewdPoseNumber = None
-        removeBG = False
-
-        for paramData in parameters:
-            param = paramData.split("=")
-            if param[0].strip() == "hirez" and param[1].strip() == "true":
-                hirez = True
-            elif param[0].strip() == "seed":
-                seedToUse = param[1].strip()
-            elif param[0].strip() == "batch":
-                batchCount = int(param[1].strip())
-                if batchCount < 1 or batchCount > 4:
-                    batchCount = 1
-            elif param[0].strip() == "removeBG" and param[1].strip() == "true":
-                removeBG = True
-            elif param[0].strip() == "pose":
-                poseNumber = param[1].strip()
-            elif param[0].strip() == "lewdPose":
-                lewdPoseNumber = param[1].strip()
-
-        # Reset batchCount if hirez
-        if hirez and batchCount != 1:
-            batchCount = 1
-
-        # Add hirez in first response to INPUT_CHANNEL
-        appendHirez = ""
-        if hirez:
-            appendHirez = " **hirez (" + str(HIREZ_SCALE) + ")**"
-
-
-        # V1 make character names in BOLD
-        resumedPrompt = userPrompt
-        for key in charactersLORA.keys():
-            if key in userPrompt:
-                resumedPrompt = resumedPrompt.replace(key, "**" + key.lower() + "**")
-
-        # V1 make LORAs in BOLD
-        for key in LORA_List.keys():
-            if key in userPrompt:
-                resumedPrompt = resumedPrompt.replace(key, "**" + key.lower() + "**")
-
-        # First response
-        await inputChannel.send(f"Queuing request from {ctx.message.author} , in " + format + appendHirez + " format")
-
-        # The generate image call and callback
-        await generateImage(ctx, userPrompt, format, hirez, seedToUse, batchCount, poseNumber, lewdPoseNumber, removeBG)
+    newPrompt = SynBotPrompt(ctx, outputChannel)
+    if newPrompt.isValid:
+        await promptToImage(ctx, newPrompt)
     else:
         await ctx.send(f"{ctx.author.mention} Bad format request. Type **!Syn-helpMe** for instructions")
 
-async def generateImage(ctx, userPrompt, format, hirez=False, seedToUse=-1, batchCount=1, poseNumber=None, lewdPoseNumber=None, removeBG=False):
+@bot.command()
+async def prompt(ctx):
+    # Select proper channel to handle requests
+    input_channel_id = int(os.getenv("DEV_CHANNEL")) if env_dev else int(os.getenv("INPUT_CHANEL"))
 
-    # fix prompt by replacing character names with their LORAs
-    fixedPrompt = userPrompt
+    # Ignore generate request if it's not coming from the right channel
+    inputChannel = bot.get_channel(input_channel_id)
+    if ctx.channel != inputChannel:
+        print ("Request made in wrong channel")
+        return
+
+    # Fetch the channel where the image will be sent to. This might be move, if I ever find a way to thread the API calls.
+    output_channel_id = int(os.getenv("DEV_CHANNEL")) if env_dev else int(os.getenv("OUTPUT_CHANEL"))
+    outputChannel = bot.get_channel(output_channel_id)
+
+    newPrompt = SynBotPrompt(ctx, outputChannel)
+    if not newPrompt.isValid:
+        # Required parameters
+        if newPrompt.userPrompt == None:
+            await ctx.send(f"{ctx.author.mention} -> Missing 'prompt' parameter.")
+            return
+        elif newPrompt.formatStr == None:
+            await ctx.send(f"{ctx.author.mention} -> Missing 'format' parameter.")
+            return
+        elif newPrompt.formatStr != "landscape" and newPrompt.formatStr != "portrait":
+            await ctx.send(f"{ctx.author.mention} -> Parameter 'format' does not have the right value. Use 'landscape' or 'portrait'")
+            return
+        else:
+            await ctx.send(f"{ctx.author.mention} -> Unknown error while parsing message. WTF happened???")
+            return
+    else:
+        await promptToImage(ctx, newPrompt)
+
+async def promptToImage(ctx, newPrompt: SynBotPrompt):
+
+    ################ Create a resume to send back to the author ################################
+    # Add hirez in first response to INPUT_CHANNEL
+    appendHirez = ""
+    if newPrompt.hirez:
+        appendHirez = " **hirez (" + str(os.getenv("HIREZ_SCALE")) + ")**"
+
+    # V1 make character names in BOLD
+    resumedPrompt = newPrompt.userPrompt
     for key in charactersLORA.keys():
-        if key in userPrompt:
-            print("Found: " + key)
-            fixedPrompt = fixedPrompt.replace(key, charactersLORA[key])
+        if key in newPrompt.userPrompt:
+            resumedPrompt = resumedPrompt.replace(key, "**" + key.lower() + "**")
 
-    # Same for LORA Helpers
+    # V1 make LORAs in BOLD
     for key in LORA_List.keys():
-        if key in userPrompt:
-            print("Found: " + key)
-            fixedPrompt = fixedPrompt.replace(key, LORA_List[key])
+        if key in newPrompt.userPrompt:
+            resumedPrompt = resumedPrompt.replace(key, "**" + key.lower() + "**")
 
+    # First response
+    qsizeCount = str(bot.queue.qsize() + 1)
+    await ctx.send(f"Queuing request from {ctx.message.author} , in " + newPrompt.format + appendHirez + " format. (" + qsizeCount + " in queue)")
+    ################ END resume ################################
+
+    # Add the prompt to the queue, where it will be executed on next queue loop
+    await bot.queue.put(newPrompt)
+
+
+
+@bot.command()
+async def newOutfit(ctx):
+    # Select proper channel to handle requests
+    input_channel_id = int(os.getenv("DEV_CHANNEL")) if env_dev else int(os.getenv("INPUT_CHANEL"))
+
+    # Ignore generate request if it's not coming from the right channel
+    inputChannel = bot.get_channel(input_channel_id)
+    if ctx.channel != inputChannel:
+        print ("Request made in wrong channel")
+        return
+
+    message = str(ctx.message.content)
+
+    # message should be in format -> !Syn-newOutfit {"character": "sayaka", "outfit": "casual", "denoise": 0.5, "prompt": "my outfit prompt"}
+    jsonStr = message.removeprefix("!Syn-newOutfit").strip()
+    jsonData = json.loads(jsonStr)
+
+    characterPrompt = ""
+    character = jsonData['character']
+    if character == None:
+        await ctx.send(f"{ctx.author.mention} -> Missing 'character' parameter.")
+        return
+    else:
+        if character == "sayaka":
+            characterPrompt = "<lora:stsayaka:.5>, stSayaka, pink_hair, blue_eyes, large_breasts, "
+        elif character == "john":
+            characterPrompt = "<lora:stJohn:.5>, stJohn, black_hair, black_eyes, "
+
+
+    # Prepare image paths and stop if image is missing
+    baseImagePath = f"./sprites/{character}/{jsonData['outfit']}.png"
+    if not os.path.exists(baseImagePath):
+        await ctx.send(f"{ctx.author.mention} -> {baseImagePath} does not exist.")
+        return           
+    
+    maskImagePath = f"./sprites/{character}/mask.png"
+    if not os.path.exists(maskImagePath):
+        await ctx.send(f"{ctx.author.mention} -> {maskImagePath} does not exist.")
+        return
+    
+    denoise = jsonData["denoise"]
+    prompt = jsonData["prompt"]
+
+    baseImage = getImageAtPath(baseImagePath)
+    # API Payload
     payload = {
-        "prompt": "masterpiece, best_quality, extremely detailed, intricate, high_details, sharp_focus , best_anatomy, hires, (colorful), beautiful, 4k, magical, adorable, (extraordinary:0.6), <lora:thickline_fp16:.2>, <lora:neg4all_bdsqlsz_V3.5:1.0>, negative_hand-neg, " + fixedPrompt,
-        "negative_prompt": "head out of frame, fewer digits, extra body parts, censored, collage, logo, border, badhandv4, paintings, sketches, fingers, (worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality, ((monochrome)), ((grayscale)), skin spots, acnes, skin blemishes, age spot, (outdoor:1.6), backlight,(ugly:1.331), (duplicate:1.331), (morbid:1.21), (mutilated:1.21), (tranny:1.331), mutated hands, (poorly drawn hands:1.5), blurry, (bad anatomy:1.21), (bad proportions:1.331), extra limbs, (disfigured:1.331), lowers, bad hands, missing fingers, extra digit",
-        "sampler_name": "DPM++ 2M Karras",
-        "batch_size": batchCount,
-        "steps": 35,
-        "cfg_scale": 7,
-        "width": int(format.split("x")[0]),
-        "height": int(format.split("x")[1]),
-        "restore_faces": False,
-        "seed": seedToUse
+        "init_images": [ baseImage ], 
+        "mask": getImageAtPath(maskImagePath), 
+        "denoising_strength": denoise, 
+        "image_cfg_scale": 7, 
+        "mask_blur": 10, 
+        "inpaint_full_res": True,                   #choices=["Whole picture", "Only masked"]
+        "inpaint_full_res_padding": 32, 
+        "inpainting_mask_invert": 0,                #choices=['Inpaint masked', 'Inpaint not masked']
+        "sampler_name": "DPM++ 2M Karras", 
+        "batch_size": 1, 
+        "steps": 30, 
+        "cfg_scale": 7, 
+        "width": 728, "height": 728, 
+        "prompt": "masterpiece, best_quality, extremely detailed, intricate, high_details, sharp_focus , best_anatomy, hires, (colorful), beautiful, 4k, magical, adorable, (extraordinary:0.6), (((simple_background))), (((white_background))), multiple_views, reference_sheet, " + characterPrompt + prompt, 
+        "negative_prompt": "paintings, sketches, fingers, (worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality, ((monochrome)), ((grayscale)), skin spots, acnes, skin blemishes, age spot, (outdoor:1.6), backlight,(ugly:1.331), (duplicate:1.331), (morbid:1.21), (mutilated:1.21), (tranny:1.331), mutated hands, (poorly drawn hands:1.5), blurry, (bad anatomy:1.21), (bad proportions:1.331), extra limbs, (disfigured:1.331), lowers, bad hands, missing fingers, extra digit", 
+        "sampler_index": "DPM++ 2M Karrass"
     }
 
-    if hirez:
-        payload["denoising_strength"] = 0.5
-        payload["enable_hr"] = True
-        payload["hr_upscaler"] = "4x-UltraSharp"
-        #payload["hr_resize_x"] = int(format.split("x")[0]) * HIREZ_SCALE
-        #payload["hr_resize_y"] = int(format.split("x")[1]) * HIREZ_SCALE
-        payload["hr_scale"] = HIREZ_SCALE
-        payload["hr_sampler_name"] = "DPM++ 2M Karras"
-        payload["hr_second_pass_steps"] = 20
-    
-    poseImage = None
-    if poseNumber != None:
-        # Pick a pose according toe format and "shot"
-        pose_format = "landscape" if int(format.split("x")[0]) > int(format.split("x")[1]) else "portrait"
-        pose_shot = "full_body" if "full_body" in userPrompt else "cowboy_shot"
-        poseImage = getPose(pose_format, pose_shot, poseNumber)
-
-    if lewdPoseNumber != None:
-        # Pick a pose according toe format and "shot"
-        poseImage = getLewdPose(lewdPoseNumber)
-
-    if poseImage != None:
-        payload["alwayson_scripts"] = {
-            "controlnet": {
-                "args": [
-                    {
-                        "input_image": poseImage,
-                        "model": "control_v11p_sd15_openpose [cab727d4]",
-                        "weight": 1,
-                        # "width": 512,
-                        # "height": 768,
-                        "pixel_perfect": True
-                    }
-                ]
-            }
+    # Add controlNet OpenPose
+    payload["alwayson_scripts"] = {
+        "controlnet": {
+            "args": [
+                {
+                    "enabled": True,
+                    "input_image": baseImage,
+                    "module": "openpose",
+                    "model": "control_v11p_sd15_openpose [cab727d4]",
+                    "weight": .75,  # Apply pose on 75% of the steps
+                    "pixel_perfect": True
+                },
+                {
+                    "enabled": True,
+                    "input_image": baseImage,
+                    "module": "depth_midas",
+                    "model": "control_v11f1p_sd15_depth [cfd03158]",
+                    "weight": 0.5, # Apply depth only 50% of the steps
+                    "guidance": 1.0,
+                    "guidance_start": 0.0,
+                    "guidance_end": 0.5,
+                    "pixel_perfect": True
+                }
+            ]
         }
+    }
 
-    # Sending API call request
-    print("Sending request...")
-    try:
-        response = requests.post(url=f'{SD_API_URL}/sdapi/v1/txt2img', json=payload)
-        response.raise_for_status()
-    except requests.exceptions.HTTPError as err:
-        raise SystemExit(err)
-    print("Request returned: " + str(response.status_code))
+    await bot.queue.put(asyncio.create_task(sendPayload(ctx, payload, "sdapi/v1/img2img", f"{ctx.author.mention} generated this outfit for {character}")))
 
-    # Making sure we respond in the right channel
-    channel_id = DEV_CHANNEL if env_dev else OUTPUT_CHANEL
-    channel = bot.get_channel(channel_id)
-
-    # Convert response to json
-    r=response.json()   
-
-    # Extract the seed that was used to generate the image
-    info = r["info"]
-    infoJson = json.loads(info)
-    seedUsed = infoJson["seed"]
-
-    # looping response to get actual image
-    discordFiles = []
-    for i in r['images']:
-        # Image is in base64, convert it to a discord.File
-        bytes = io.BytesIO(base64.b64decode(i.split(",",1)[0]))
-        bytes.seek(0)
-        discordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}.png")
-        discordFiles.append(discordFile)
-
-    if removeBG:
-        await removeBackground(discordFiles)
-
-    # Send a response with the image attached
-    await channel.send(f"{ctx.author.mention} generated this image with prompt:{ctx.message.jump_url} and seed: {seedUsed}", files=discordFiles)
-
-async def removeBackground(discordFiles=None):
-
-    for discordFile in discordFiles:
-        payload = {
-            "input_image": str(base64.b64encode(discordFile.fp.getvalue())),
-            "model": "isnet-anime",
-            "return_mask": False,
-            "alpha_matting": False
-        }
-        print(payload)
-
+async def sendPayload(ctx, payload, apiPath, formatedResponse):
+        
         # Sending API call request
-        print("Sending bg remove request...")
+        print("Sending request...")
         try:
-            response = requests.post(url=f'{SD_API_URL}/rembg', json=payload)
+            baseURL = os.getenv("SD_API_URL")
+            response = requests.post(url=f'{baseURL}/{apiPath}', json=payload)
             response.raise_for_status()
         except requests.exceptions.HTTPError as err:
             raise SystemExit(err)
-        print("BG remove request returned: " + str(response.status_code))
+        print("Request returned: " + str(response.status_code))
 
         # Convert response to json
-        r=response.json()   
+        r = response.json()
+
+        # Extract the seed that was used to generate the image
+        info = r["info"]
+        infoJson = json.loads(info)
+        responseSeedUsed = infoJson["seed"]
+
+        # looping response to get actual image
+        discordFiles = []
         for i in r['images']:
             # Image is in base64, convert it to a discord.File
             bytes = io.BytesIO(base64.b64decode(i.split(",",1)[0]))
             bytes.seek(0)
-            newDiscordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}_transparent.png")
-            discordFiles.append(newDiscordFile)
+            discordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}.png")
+            discordFiles.append(discordFile)
 
+        output_channel_id = int(os.getenv("DEV_CHANNEL")) if env_dev else int(os.getenv("OUTPUT_CHANEL"))
+        outputChannel = bot.get_channel(output_channel_id)
 
+        # Send a response with the image attached
+        await outputChannel.send(formatedResponse, files=discordFiles)
 
 
 
 # Run Bot in loop
-bot.run(TOKEN)
+bot.run(os.getenv("TOKEN"))
