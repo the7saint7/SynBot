@@ -1,3 +1,4 @@
+import os
 import io
 import sys
 import json
@@ -6,13 +7,13 @@ import aiohttp
 import asyncio
 import discord
 import requests
-from discord.ext import commands
-from charactersList import charactersLORA
-from LORA_Helper import LORA_List
-from openPoses import getPose, getLewdPose, getImageAtPath
-from SynBotMain import SynBotManager, SynBotPrompt
-import os
+from PIL import Image
 from dotenv import load_dotenv
+from discord.ext import commands
+from LORA_Helper import LORA_List
+from charactersList import charactersLORA
+from SynBotMain import SynBotManager, SynBotPrompt
+from openPoses import getPose, getLewdPose, getImageAtPath
 
 # syn2: The plan is to run 2 bots, because I have 2 StableDiffusion server, this would help with the workload
 # Users will be able to select which bot to work with
@@ -159,7 +160,17 @@ async def promptToImage(ctx, newPrompt: SynBotPrompt):
     # Add the prompt to the queue, where it will be executed on next queue loop
     await bot.queue.put(newPrompt)
 
-
+# Process an image URL and return a base64 encoded string
+async def encode_discord_image(image_url):
+    try:
+        response = requests.get(image_url)
+        image = Image.open(io.BytesIO(response.content)).convert('RGB')
+        buffered = io.BytesIO()
+        image.save(buffered, format="JPEG")
+        return base64.b64encode(buffered.getvalue()).decode('utf-8')
+    except Exception as e:
+        print(f"Error in encode_discord_image: {e}")
+        return None
 
 @bot.command()
 async def newOutfit(ctx):
@@ -188,11 +199,12 @@ async def newOutfit(ctx):
         print(f"invalid json: {e} -> {jsonStr}" )
         return
     
+    hasAttachments = len(ctx.message.attachments) >= 2
 
     characterPrompt = ""
-    character = jsonData['character']
-    if character == None:
-        await ctx.send(f"{ctx.author.mention} -> Missing 'character' parameter.")
+    character = jsonData['character'] if "character" in jsonData else None
+    if character == None and not hasAttachments:
+        await ctx.send(f"{ctx.author.mention} -> Missing 'character' parameter, or image attachments")
         return
     else:
 
@@ -223,45 +235,68 @@ async def newOutfit(ctx):
 
     # Default pose is A
     pose = jsonData["pose"] if "pose" in jsonData else "A"
-    
     seedToUse = jsonData["seed"] if "seed" in jsonData else -1
-    removeBG = True if "removeBG" in jsonData else False
+    
+    # Remove BG default: True
+    removeBG = True
+    if "removeBG" in jsonData:
+        removeBG = jsonData["removeBG"] == "true"
 
     # Prepare image paths and stop if image is missing
-    if not "outfit" in jsonData:
+    if not "outfit" in jsonData and not hasAttachments:
         await ctx.send(f"{ctx.author.mention} -> 'outfit' parameter missing.")
         return
-    if not "character" in jsonData:
-        await ctx.send(f"{ctx.author.mention} -> 'character' parameter missing.")
-        return
-    outfit = jsonData["outfit"]
+    outfit = jsonData["outfit"] if "outfit" in jsonData else None
 
-    # might need to use custom mask
+    # might need to use custom mask, pointless in case images where attached tho
     mask = jsonData["mask"] if "mask" in jsonData else "mask"
 
-    # #Lets help the users by making sure the right mask image is being used in special cases
-    # if character == "allison" and outfit == "gym":
-    #     mask = "a_gym_mask"
+    baseImage = ""
+    maskImage = ""
 
+    if hasAttachments:
+        ###################### START USING USER SUBMITTED BASE AND MASK IMAGE
+        print("Loading sent images as attachments...")
+        baseImage = await encode_discord_image(ctx.message.attachments[0].url) # Base?
+        maskImage = await encode_discord_image(ctx.message.attachments[1].url) # Mask?
+        print("Attachments loaded in memory.")
+        ###################### END USING USER SUBMITTED BASE AND MASK IMAGE
 
-    baseImagePath = f"./sprites/{character}/{pose}_{outfit}.png"
-    if not os.path.exists(baseImagePath):
-        await ctx.send(f"{ctx.author.mention} -> {baseImagePath} does not exist.")
-        return           
-    
-    maskImagePath = f"./sprites/{character}/{pose}_{mask}.png"
-    if not os.path.exists(maskImagePath):
-        await ctx.send(f"{ctx.author.mention} -> {maskImagePath} does not exist.")
-        return
-    
+    else:
+        ###################### START DEFAULT BASE AND MASK IMAGE
+        baseImagePath = f"./sprites/{character}/{pose}_{outfit}.png"
+        if not os.path.exists(baseImagePath):
+            await ctx.send(f"{ctx.author.mention} -> {baseImagePath} does not exist.")
+            return           
+        baseImage = getImageAtPath(baseImagePath)
+        
+        maskImagePath = f"./sprites/{character}/{pose}_{mask}.png"
+        if not os.path.exists(maskImagePath):
+            await ctx.send(f"{ctx.author.mention} -> {maskImagePath} does not exist.")
+            return
+        maskImage = getImageAtPath(maskImagePath)
+        ###################### END DEFAULT BASE AND MASK IMAGE
+
     denoise = jsonData["denoise"]
     prompt = jsonData["prompt"]
 
-    baseImage = getImageAtPath(baseImagePath)
+    # Replace prompt tags
+    for key in charactersLORA.keys():
+        if key in prompt:
+            print("Found: " + key)
+            prompt = prompt.replace(key, charactersLORA[key])
+
+    # Same for LORA Helpers
+    for key in LORA_List.keys():
+        if key in prompt:
+            print("Found: " + key + " in prompt")
+            prompt = prompt.replace(key, LORA_List[key])
+    
+
     # API Payload
     payload = {
         "init_images": [ baseImage ], 
-        "mask": getImageAtPath(maskImagePath), 
+        "mask": maskImage, 
         "denoising_strength": denoise, 
         "image_cfg_scale": 7, 
         "mask_blur": 10, 
@@ -310,7 +345,7 @@ async def newOutfit(ctx):
     URL = getAPIURL()
     synBot = "Syn2-Bot" if syn2 else "Syn-Bot"
     await ctx.send(f"**Creating new outfit** for {character} on **{synBot}** , requested by {ctx.message.author.display_name}.")
-    await bot.queue.put(asyncio.create_task(sendPayload(ctx, payload, URL, "sdapi/v1/img2img", f"{ctx.author.mention} generated this outfit for {character}")))
+    await bot.queue.put(asyncio.create_task(sendPayload(ctx, payload, URL, "sdapi/v1/img2img", f"{ctx.author.mention} generated this outfit for {character}", removeBG)))
 
 async def sendPayload(ctx, payload, URL, apiPath, formattedResponse, removeBG=True, removeControlNetImages=True):
         
