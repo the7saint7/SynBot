@@ -2,6 +2,7 @@ import io
 import sys
 import json
 import base64
+import aiohttp
 import asyncio
 import discord
 import requests
@@ -13,27 +14,53 @@ from SynBotMain import SynBotManager, SynBotPrompt
 import os
 from dotenv import load_dotenv
 
+# syn2: The plan is to run 2 bots, because I have 2 StableDiffusion server, this would help with the workload
+# Users will be able to select which bot to work with
+# env_dev: This will fix the channels to use to be private for ToS Admin role only
+
 load_dotenv()
 env_dev = False
+syn2 = False
 if len(sys.argv) > 1:
-    env_dev = True if sys.argv[1] == "dev" else False
+    env_dev = True if "dev" in sys.argv else False
+    if env_dev:
+        print("Starting server in dev mode")
+    syn2 = True if "syn2" in sys.argv else False
+
+# Printing the Bot name
+if syn2:
+    print("Starting Syn-Bot 2")
+else:
+    print("Starting Syn-Bot 1")
+
+def getAPIURL():
+    if syn2:
+        return os.getenv("SD_API_URL2")
+    else:
+        return os.getenv("SD_API_URL1")
 
 # Discord Bot
-bot = SynBotManager(command_prefix="!Syn-", intents=discord.Intents.all())
+if syn2:
+    bot = SynBotManager(command_prefix="!Syn2-", intents=discord.Intents.all())
+else:
+    bot = SynBotManager(command_prefix="!Syn-", intents=discord.Intents.all())
 
 @bot.event
 async def on_ready():
+    aiNumInstruction = "2" if syn2 else ""
     channel_id = int(os.getenv("DEV_CHANNEL")) if env_dev else int(os.getenv("INPUT_CHANEL"))
     channel = bot.get_channel(channel_id)
-    await channel.send("Syn AI is online and ready to generate some images. Type **!Syn-helpMe** for instructions!")
+    await channel.send(f"**Syn-Bot{aiNumInstruction} AI** is online and ready to generate some images. Type **!Syn{aiNumInstruction}-helpMe** for instructions!")
 
 @bot.command()
 async def helpMe(ctx):
-    await ctx.message.author.send("You can ask me to generate ST-related images using these keywords: !Syn-generate : FORMAT[landscape|portrait]: prompt with names like JOHN, KATRINA, in UPPERCASE\n**!Syn-generate : landscape: JOHN as a girl at a beach, wearing a bikini**\n**!Syn-generate : portrait: KATRINA wearing a school uniform in a classroom yelling at someone else**\nYou can get a full list of supported ST character names by using the command **!Syn-characters**\nYou can get a list of advanced parameters by calling **!Syn-advanced**\nYou can get a list pre-formated LORAs by calling **!Syn-loras**\nYou can also check the list of available poses in the **syn-ai-help** forum")
+    aiNumInstruction = "2" if syn2 else ""
+    await ctx.message.author.send(f"You can ask me to generate ST-related images using these keywords: !Syn{aiNumInstruction}-generate : FORMAT[landscape|portrait]: prompt with names like JOHN, KATRINA, in UPPERCASE\n**!Syn{aiNumInstruction}-generate : landscape: JOHN as a girl at a beach, wearing a bikini**\n**!Syn{aiNumInstruction}-generate : portrait: KATRINA wearing a school uniform in a classroom yelling at someone else**\nYou can get a full list of supported ST character names by using the command **!Syn{aiNumInstruction}-characters**\nYou can get a list of advanced parameters by calling **!Syn{aiNumInstruction}-advanced**\nYou can get a list pre-formated LORAs by calling **!Syn{aiNumInstruction}-loras**\nYou can also check the list of available poses in the **syn-ai-help** forum")
 
 @bot.command()
 async def advanced(ctx):
-    await ctx.message.author.send("Here is a list of extra parameters you can add at the end of your prompt. Make sure you add an extra ':' to separate your prompt from the extra parameters.\n**hirez=true**: Will increase the resolution of the image and make it look sharper. This feature could be disabled if abused as it taxes my PC a lot.\n**removeBG=true**: Will try to remove the background from the image. Results will vary.\n**seed=654789**: You can enter any seed NUMBER yo want. This way you can change your prompt a little and use the same seed, to see how it changes.\n**batch=4**: will create 4 images, you can use any number between 1 and 4. batch count will be ignore if hirez is True.\nA neat trick, is to NOT use hirez, until you find an image that you like, then you can use the same prompt, pass it the hirez and seed number and it will generate the same image but in higher quality & resolution.\n\nExample:\n**!Syn-generate : portrait: JOHN, TKUNIFORM, a girl wearing a school uniform in a classroom angry, frown, hands_on_own_hips, hand_on_hip, large_breasts, long_hair, ponytail : hirez=true, seed=3955923732**")
+    aiNumInstruction = "2" if syn2 else ""
+    await ctx.message.author.send(f"Here is a list of extra parameters you can add at the end of your prompt. Make sure you add an extra ':' to separate your prompt from the extra parameters.\n**hirez=true**: Will increase the resolution of the image and make it look sharper. This feature could be disabled if abused as it taxes my PC a lot.\n**removeBG=true**: Will try to remove the background from the image. Results will vary.\n**seed=654789**: You can enter any seed NUMBER yo want. This way you can change your prompt a little and use the same seed, to see how it changes.\n**batch=4**: will create 4 images, you can use any number between 1 and 4. batch count will be ignore if hirez is True.\nA neat trick, is to NOT use hirez, until you find an image that you like, then you can use the same prompt, pass it the hirez and seed number and it will generate the same image but in higher quality & resolution.\n\nExample:\n**!Syn{aiNumInstruction}-generate : portrait: JOHN, TKUNIFORM, a girl wearing a school uniform in a classroom angry, frown, hands_on_own_hips, hand_on_hip, large_breasts, long_hair, ponytail : hirez=true, seed=3955923732**")
 
 @bot.command()
 async def characters(ctx):
@@ -64,7 +91,8 @@ async def generate(ctx):
     if newPrompt.isValid:
         await promptToImage(ctx, newPrompt)
     else:
-        await ctx.send(f"{ctx.author.mention} Bad format request. Type **!Syn-helpMe** for instructions")
+        aiNumInstruction = "2" if syn2 else ""
+        await ctx.send(f"{ctx.author.mention} Bad format request. Type **{aiNumInstruction}-helpMe** for instructions")
 
 @bot.command()
 async def prompt(ctx):
@@ -105,7 +133,8 @@ async def promptToImage(ctx, newPrompt: SynBotPrompt):
     # Add hirez in first response to INPUT_CHANNEL
     appendHirez = ""
     if newPrompt.hirez:
-        appendHirez = " **hirez (" + str(os.getenv("HIREZ_SCALE")) + ")**"
+        newPrompt.hirezValue = os.getenv("HIREZ_SCALE2") if syn2 else os.getenv("HIREZ_SCALE")
+        appendHirez = " **hirez (" + str(newPrompt.hirezValue) + ")**"
 
     # V1 make character names in BOLD
     resumedPrompt = newPrompt.userPrompt
@@ -119,8 +148,12 @@ async def promptToImage(ctx, newPrompt: SynBotPrompt):
             resumedPrompt = resumedPrompt.replace(key, "**" + key.lower() + "**")
 
     # First response
+    # Define the URL this prompt request will use for every API calls
+    URL = getAPIURL()
+    newPrompt.URL = URL
+    synBot = "Syn2-Bot" if syn2 else "Syn-Bot"
     qsizeCount = str(bot.queue.qsize() + 1)
-    await ctx.send(f"Queuing request from {ctx.message.author} , in " + newPrompt.format + appendHirez + " format. (" + qsizeCount + " in queue)")
+    await ctx.send(f"Queuing request from {ctx.message.author.display_name} , in " + newPrompt.format + appendHirez + " format, on " + synBot + ". (" + qsizeCount + " in queue)")
     ################ END resume ################################
 
     # Add the prompt to the queue, where it will be executed on next queue loop
@@ -130,6 +163,11 @@ async def promptToImage(ctx, newPrompt: SynBotPrompt):
 
 @bot.command()
 async def newOutfit(ctx):
+
+    # await ctx.send(f"{ctx.author.mention.display_name} newOutfit is broken, will be fixed sometime today, I promise.")
+    # return
+
+
     # Select proper channel to handle requests
     input_channel_id = int(os.getenv("DEV_CHANNEL")) if env_dev else int(os.getenv("INPUT_CHANEL"))
 
@@ -142,8 +180,14 @@ async def newOutfit(ctx):
     message = str(ctx.message.content)
 
     # message should be in format -> !Syn-newOutfit {"character": "sayaka", "outfit": "casual", "denoise": 0.5, "prompt": "my outfit prompt"}
-    jsonStr = message.removeprefix("!Syn-newOutfit").strip()
-    jsonData = json.loads(jsonStr)
+    jsonStr = message.removeprefix("!Syn-newOutfit").removeprefix("!Syn2-newOutfit").strip()
+    try:
+        jsonData = json.loads(jsonStr)
+    except ValueError as e:
+        await ctx.send(f"{ctx.author.mention} invalid json: {e}")
+        print(f"invalid json: {e} -> {jsonStr}" )
+        return
+    
 
     characterPrompt = ""
     character = jsonData['character']
@@ -159,6 +203,8 @@ async def newOutfit(ctx):
             characterPrompt = "<lora:stJohn:.5>, stJohn, "
         elif character == "allison":
             characterPrompt = "<lora:stAllison2:.5>,  stAllison2, "
+        elif character == "katrina":
+            characterPrompt = "<lora:stKatrina2:.5>,  stKatrina, "
 
     width = 728
     height = 728
@@ -174,6 +220,9 @@ async def newOutfit(ctx):
     if batch > 1:
         width = 512
         height = 512
+
+    # Default pose is A
+    pose = jsonData["pose"] if "pose" in jsonData else "A"
     
     seedToUse = jsonData["seed"] if "seed" in jsonData else -1
     removeBG = True if "removeBG" in jsonData else False
@@ -190,17 +239,17 @@ async def newOutfit(ctx):
     # might need to use custom mask
     mask = jsonData["mask"] if "mask" in jsonData else "mask"
 
-    #Lets help the users by making sure the right mask image is being used in special cases
-    if character == "allison" and outfit == "gym":
-        mask = "gym_mask"
+    # #Lets help the users by making sure the right mask image is being used in special cases
+    # if character == "allison" and outfit == "gym":
+    #     mask = "a_gym_mask"
 
 
-    baseImagePath = f"./sprites/{character}/{outfit}.png"
+    baseImagePath = f"./sprites/{character}/{pose}_{outfit}.png"
     if not os.path.exists(baseImagePath):
         await ctx.send(f"{ctx.author.mention} -> {baseImagePath} does not exist.")
         return           
     
-    maskImagePath = f"./sprites/{character}/{mask}.png"
+    maskImagePath = f"./sprites/{character}/{pose}_{mask}.png"
     if not os.path.exists(maskImagePath):
         await ctx.send(f"{ctx.author.mention} -> {maskImagePath} does not exist.")
         return
@@ -256,60 +305,58 @@ async def newOutfit(ctx):
             ]
         }
     }
-    await ctx.send(f"Creating new outfit for {character}, requested by {ctx.message.author}.")
-    await bot.queue.put(asyncio.create_task(sendPayload(ctx, payload, "sdapi/v1/img2img", f"{ctx.author.mention} generated this outfit for {character}")))
 
-async def sendPayload(ctx, payload, apiPath, formattedResponse, removeBG=True, removeControlNetImages=True):
+    # Define the URL this prompt request will use for every API calls
+    URL = getAPIURL()
+    synBot = "Syn2-Bot" if syn2 else "Syn-Bot"
+    await ctx.send(f"**Creating new outfit** for {character} on **{synBot}** , requested by {ctx.message.author.display_name}.")
+    await bot.queue.put(asyncio.create_task(sendPayload(ctx, payload, URL, "sdapi/v1/img2img", f"{ctx.author.mention} generated this outfit for {character}")))
+
+async def sendPayload(ctx, payload, URL, apiPath, formattedResponse, removeBG=True, removeControlNetImages=True):
         
         # Sending API call request
-        print("Sending request...")
-        try:
-            baseURL = os.getenv("SD_API_URL")
-            response = requests.post(url=f'{baseURL}/{apiPath}', json=payload)
-            response.raise_for_status()
-        except requests.exceptions.HTTPError as err:
-            raise SystemExit(err)
-        print("Request returned: " + str(response.status_code))
+        print(f"Sending request to '{URL}' ...")
 
-        # Convert response to json
-        r = response.json()
+        async with aiohttp.ClientSession(loop=ctx.bot.loop) as session:
+            async with session.post(url=f'{URL}/{apiPath}', json=payload) as response:
+                print("Request returned: " + str(response.status))
+                if response.status == 200:
+                    r = await response.json()
 
-        # Extract the seed that was used to generate the image
-        info = r["info"]
-        infoJson = json.loads(info)
-        responseSeedUsed = infoJson["seed"]
+                    # Extract the seed that was used to generate the image
+                    info = r["info"]
+                    infoJson = json.loads(info)
+                    responseSeedUsed = infoJson["seed"]
 
-        # looping response to get actual image
-        discordFiles = []
-        for i in r['images']:
+                    # looping response to get actual image
+                    discordFiles = []
+                    for i in r['images']:
 
-            # Skip ControlNet images
-            if removeControlNetImages:
-                if r["images"].index(i) >= len(r["images"]) -2:
-                    pass
+                        # Skip ControlNet images
+                        if removeControlNetImages:
+                            batchSize = payload["batch_size"]
+                            if r["images"].index(i) >= batchSize: #Last 2 images are always ControlNet, Depth and OpenPose
+                                continue # loop to next image
 
-            # Remove background
-            i = await removeBackground(i) if removeBG else i
+                        # Remove background
+                        if removeBG:
+                            i = await removeBackground(i, URL, ctx) if removeBG else i
 
-            # Image is in base64, convert it to a discord.File
-            bytes = io.BytesIO(base64.b64decode(i.split(",",1)[0]))
-            bytes.seek(0)
-            discordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}.png")
-            discordFiles.append(discordFile)
+                        # Image is in base64, convert it to a discord.File
+                        bytes = io.BytesIO(base64.b64decode(i.split(",",1)[0]))
+                        bytes.seek(0)
+                        discordFile = discord.File(bytes, filename="{seed}-{ctx.message.author.display_name}.png")
+                        discordFiles.append(discordFile)
 
 
-        # if removeBG:
-        #     await removeBackground(discordFiles)
+                    output_channel_id = int(os.getenv("DEV_CHANNEL")) if env_dev else int(os.getenv("OUTPUT_CHANEL"))
+                    outputChannel = bot.get_channel(output_channel_id)
+
+                    # Send a response with the image attached
+                    await outputChannel.send(formattedResponse + " (seed: " + str(responseSeedUsed) + ")", files=discordFiles)
 
 
-        output_channel_id = int(os.getenv("DEV_CHANNEL")) if env_dev else int(os.getenv("OUTPUT_CHANEL"))
-        outputChannel = bot.get_channel(output_channel_id)
-
-        # Send a response with the image attached
-        await outputChannel.send(formattedResponse + " (seed: " + str(responseSeedUsed) + ")", files=discordFiles)
-
-
-async def removeBackground(discordFile):
+async def removeBackground(discordFile, URL, ctx):
 
     # for discordFile in discordFiles:
     payload = {
@@ -318,24 +365,13 @@ async def removeBackground(discordFile):
     }
 
     # Sending API call request
-    baseURL = os.getenv("SD_API_URL")
-    print("Sending bg remove request...")
-    try:
-        response = requests.post(url=f'{baseURL}/rembg', json=payload)
-        response.raise_for_status()
-    except requests.exceptions.HTTPError as err:
-        raise SystemExit(err)
-    print("BG remove request returned: " + str(response.status_code))
-
-    # Convert response to json
-    r=response.json()
-    return r['image']
-    # if i != None:
-    #     # Image is in base64, convert it to a discord.File
-    #     bytes = io.BytesIO(base64.b64decode(i))
-    #     bytes.seek(0)
-    #     newDiscordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}_transparent.png")
-    #     discordFiles.insert(0, newDiscordFile)
+    print(f"Sending request to '{URL}' ...")
+    async with aiohttp.ClientSession(loop=ctx.bot.loop) as session:
+        async with session.post(url=f'{URL}/rembg', json=payload) as response:
+            print("Request returned: " + str(response.status))
+            if response.status == 200:
+                r = await response.json()
+                return r['image']
 
 # Run Bot in loop
 bot.run(os.getenv("TOKEN"))

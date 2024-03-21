@@ -2,6 +2,7 @@ import os
 import io
 import json
 import base64
+import aiohttp
 import asyncio
 import discord
 import requests
@@ -23,12 +24,12 @@ class SynBotManager(commands.Bot):
         # start the task to run in the background
         self.my_background_task.start()
 
-    @tasks.loop(seconds=15)  # task runs every 60 seconds
+    @tasks.loop(seconds=5)  # task runs every 5 seconds
     async def my_background_task(self):
         print("dequeing...")
         task = await self.queue.get()
         if isinstance(task, SynBotPrompt):
-            task.generateImage()
+            await task.generateImage()
         else:
             await task
         self.queue.task_done() 
@@ -45,6 +46,7 @@ class SynBotPrompt:
         # Default parameters
         self.isValid = True
         self.hirez = False
+        self.hirezValue = 1.0
         self.seedToUse = -1
         self.batchCount = 1
         self.poseNumber = None
@@ -53,14 +55,15 @@ class SynBotPrompt:
         self.format = "640x360" 
         self.negative = "NEGATIVE"
         self.userPrompt = None
+        self.URL = ""
 
         # # The message that was sent
         message = str(self.ctx.message.content)
 
-        if message.startswith("!Syn-prompt"):
+        if message.startswith("!Syn-prompt") or message.startswith("!Syn2-prompt"):
             #Syn-prompt (NEW WAY)
             # message should be in format -> !Syn-prompt {"format": "landscape", "seed": 123456, "hirez": False, "batch": 4, "pose": 13, "lewdPose": 69, "removeBG": False, prompt": "my outfit prompt", "negative": "bad_anatomy"}
-            jsonStr = message.removeprefix("!Syn-prompt").strip()
+            jsonStr = message.removeprefix("!Syn-prompt").removeprefix("!Syn2-prompt").strip()
             jsonData = json.loads(jsonStr)
 
             # Required parameters
@@ -126,38 +129,7 @@ class SynBotPrompt:
         if self.hirez and self.batchCount != 1:
             self.batchCount = 1
 
-
-
-    def removeBackground(discordFiles=None):
-
-        for discordFile in discordFiles:
-            payload = {
-                "input_image": str(base64.b64encode(discordFile.fp.getvalue())),
-                "model": "isnet-anime",
-                "return_mask": False,
-                "alpha_matting": False
-            }
-            print(payload)
-
-            # Sending API call request
-            print("Sending bg remove request...")
-            try:
-                response = requests.post(url=f'{SD_API_URL}/rembg', json=payload)
-                response.raise_for_status()
-            except requests.exceptions.HTTPError as err:
-                raise SystemExit(err)
-            print("BG remove request returned: " + str(response.status_code))
-
-            # Convert response to json
-            r=response.json()   
-            for i in r['images']:
-                # Image is in base64, convert it to a discord.File
-                bytes = io.BytesIO(base64.b64decode(i.split(",",1)[0]))
-                bytes.seek(0)
-                newDiscordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}_transparent.png")
-                discordFiles.append(newDiscordFile)
-
-    def generateImage(self):
+    async def generateImage(self):
         
         ######################### START PAYLOAD BUILDING #####################################
         # fix prompt by replacing character names with their LORAs
@@ -195,7 +167,7 @@ class SynBotPrompt:
             payload["hr_upscaler"] = "4x-UltraSharp"
             #payload["hr_resize_x"] = int(format.split("x")[0]) * HIREZ_SCALE
             #payload["hr_resize_y"] = int(format.split("x")[1]) * HIREZ_SCALE
-            payload["hr_scale"] = os.getenv("HIREZ_SCALE")
+            payload["hr_scale"] = self.hirezValue
             payload["hr_sampler_name"] = "DPM++ 2M Karras"
             payload["hr_second_pass_steps"] = 20
         
@@ -226,40 +198,30 @@ class SynBotPrompt:
                 }
             }
         ######################### END PAYLOAD BUILDING #####################################
-            
+        
         # Sending API call request
-        print("Sending request...")
-        try:
-            baseURL = os.getenv("SD_API_URL")
-            response = requests.post(url=f'{baseURL}/sdapi/v1/txt2img', json=payload)
-            response.raise_for_status()
-        except requests.exceptions.HTTPError as err:
-            raise SystemExit(err)
-        print("Request returned: " + str(response.status_code))
+        print(f"Sending request to {self.URL} ...")
+        async with aiohttp.ClientSession(loop=self.ctx.bot.loop) as session:
+            async with session.post(url=f'{self.URL}/sdapi/v1/txt2img', json=payload)as response:
+                print("Request returned: " + str(response.status))
+                if response.status == 200:
+                    r = await response.json()
+                    # Extract the seed that was used to generate the image
+                    info = r["info"]
+                    infoJson = json.loads(info)
+                    responseSeedUsed = infoJson["seed"]
 
-        # Convert response to json
-        r = response.json()
+                    # looping response to get actual image
+                    discordFiles = []
+                    for i in r['images']:
+                        # Image is in base64, convert it to a discord.File
+                        bytes = io.BytesIO(base64.b64decode(i.split(",",1)[0]))
+                        bytes.seek(0)
+                        discordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}.png")
+                        discordFiles.append(discordFile)
 
-        # Extract the seed that was used to generate the image
-        info = r["info"]
-        infoJson = json.loads(info)
-        responseSeedUsed = infoJson["seed"]
-
-        # looping response to get actual image
-        discordFiles = []
-        for i in r['images']:
-            # Image is in base64, convert it to a discord.File
-            bytes = io.BytesIO(base64.b64decode(i.split(",",1)[0]))
-            bytes.seek(0)
-            discordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}.png")
-            discordFiles.append(discordFile)
-
-        if self.removeBG:
-            self.removeBackground(discordFiles)
-
-        # Send a response with the image attached
-        loop = asyncio.get_event_loop() # This, with create_Task, symulate the "await" command
-        loop.create_task(self.outputChanel.send(f"{self.ctx.author.mention} generated this image with prompt:{self.ctx.message.jump_url} and seed: {responseSeedUsed}", files=discordFiles))
+                    # Send a response with the image attached
+                    await self.outputChanel.send(f"{self.ctx.author.mention} generated this image with prompt:{self.ctx.message.jump_url} and seed: {responseSeedUsed}", files=discordFiles)
         
 
 
