@@ -1,5 +1,7 @@
 import os
 import base64
+from PIL import Image
+from io import BytesIO
 
 def getPose(format, shot, number):
     path = f"./poses/{format}_{shot}/{number}.png"
@@ -18,3 +20,16 @@ def getImageAtPath(path):
         return dataurl
     else:
         return None
+
+def getBase64FromImage(image):
+    buffered = BytesIO()
+    image.save(buffered, format="PNG")
+    b64 = base64.b64encode(buffered.getvalue())
+    return b64.decode("utf-8")
+
+def getImageFormBase64(b64):
+    im_bytes = base64.b64decode(b64)   # im_bytes is a binary image
+    im_file = BytesIO(im_bytes)  # convert image to file-like object
+    img = Image.open(im_file)   # img is now PIL Image object
+    return img
+

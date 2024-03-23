@@ -10,8 +10,8 @@ from PIL import Image
 from dotenv import load_dotenv
 from LORA_Helper import LORA_List
 from discord.ext import tasks, commands
-from openPoses import getPose, getLewdPose, getImageAtPath
 from charactersList import charactersLORA
+from openPoses import getPose, getLewdPose, getImageAtPath, getBase64FromImage, getImageFormBase64
 
 load_dotenv()
 
@@ -77,11 +77,15 @@ class SynBotPrompt:
         self.outfitsPose = None
         self.outfitsName = None
 
+        # birth
+        self.birthPoses = []
+        self.birthBaseImage = None
+
         # # The message that was sent
         message = str(self.ctx.message.content)
 
         # Remove all possible prefixes
-        prefixes = ["!Syn-txt2img", "!Syn-img2img", "!Syn-inpaint", "!Syn-outfits", "!Syn2-txt2img", "!Syn2-img2img", "!Syn2-inpaint", "!Syn2-outfits"]
+        prefixes = ["!Syn-txt2img", "!Syn-img2img", "!Syn-inpaint", "!Syn-outfits", "!Syn2-txt2img", "!Syn2-img2img", "!Syn2-inpaint", "!Syn2-outfits", "!Syn-birth", "!Syn2-birth"]
         for prefix in prefixes:
             message = message.removeprefix(prefix)
 
@@ -90,7 +94,8 @@ class SynBotPrompt:
             jsonData = json.loads(message.strip())
         except ValueError as e:
             self.errorMsg = f"{self.ctx.author.mention} invalid json: {e}"
-            print(f"invalid json: {e} -> {message}" )
+            print(f"invalid json: {e} -> {message}")
+            self.isValid = False
             return
 
         # Required parameters
@@ -234,8 +239,52 @@ class SynBotPrompt:
             self.inpaintMaskImage = getImageAtPath(maskImagePath)
             ###################### END DEFAULT BASE AND MASK IMAGE
 
-
         ###### END OUTFITS specific init
+
+        ###### BIRTH specific init
+        if self.type == "birth":
+            
+            # Default removeBG True if not specified in prompt parameters (will be overwritten a few lines bellow if specified in parameters)
+            self.removeBG = True
+
+            # Character Pose
+            self.birthPoses = jsonData["birthPoses"] if "birthPoses" in jsonData else None
+            if self.birthPoses == None:
+                self.errorMsg = f"{self.ctx.author.mention} Missing **'birthPoses'** parameter"
+                self.isValid = False
+                return
+            if len(self.birthPoses) > 2:
+                self.errorMsg = f"{self.ctx.author.mention} Too many poses in **'birthPoses'** parameter. Maximum of 2 poses allowed."
+                self.isValid = False
+                return
+            
+            # Loop the poses and get their bytes? Then merge them into a single image, side by side
+            poseImages = []
+            for pose in self.birthPoses:
+                posePath = f"./poses/portrait_cowboy_shot/{pose}.png"
+                if not os.path.exists(posePath):
+                    self.errorMsg = f"{self.ctx.author.mention} -> {posePath} does not exist."
+                    self.isValid = False
+                    return
+                poseImages.append(Image.open(posePath))
+
+            # Concatenate the images
+            widths, heights = zip(*(i.size for i in poseImages))
+
+            total_width = sum(widths)
+            max_height = max(heights)
+
+            new_im = Image.new('RGB', (total_width, max_height))
+
+            x_offset = 0
+            for im in poseImages:
+                new_im.paste(im, (x_offset,0))
+                x_offset += im.size[0]
+            
+            self.birthBaseImage = new_im
+
+
+        ###### END BIRTH specific init
 
 
         # Optional parameters
@@ -509,6 +558,47 @@ class SynBotPrompt:
                 }
             }
 
+        #########################         BIRTH        #####################################
+        elif self.type == "birth":
+            
+            # Where do we end the request?
+            apiPath = "/sdapi/v1/txt2img"
+
+            payload = {
+                "prompt": "((((multiple_views)))), ((solo)), ((solo_focus)), ((from_above)), ((reference sheet)), (((simple_background))), (((white_background))), ((personification)), <lora:multiple views:1>, <lora:Candysprite style:.2>, <lora:Koku_V1.0a:.2>, flat, " + self.fixedPrompt,
+                "negative_prompt": self.fixedNegative + ", shadows",
+                "sampler_name": "DPM++ 2M Karras",
+                "batch_size": self.batchCount,
+                "steps": 35,
+                "cfg_scale": 7,
+                "width": self.birthBaseImage.width / 2,
+                "height": self.birthBaseImage.height / 2,
+                "restore_faces": False,
+                "seed": self.seedToUse
+            }
+
+            # Hirez by 2 to recover from our small size
+            payload["denoising_strength"] = 0.45
+            payload["enable_hr"] = True
+            payload["hr_upscaler"] = "4x-UltraSharp"
+            payload["hr_scale"] = 2.0                         
+            payload["hr_sampler_name"] = "DPM++ 2M Karras"
+            payload["hr_second_pass_steps"] = 20
+            
+            payload["alwayson_scripts"] = {
+                "controlnet": {
+                    "args": [
+                        {
+                            "input_image": getBase64FromImage(self.birthBaseImage),
+                            "model": "control_v11p_sd15_openpose [cab727d4]",
+                            "weight": 1,
+                            "width": self.birthBaseImage.width / 2,
+                            "height": self.birthBaseImage.height / 2,
+                            "pixel_perfect": True
+                        }
+                    ]
+                }
+            }
         ######################### END PAYLOAD BUILDING #####################################
         
         # Sending API call request
@@ -527,10 +617,144 @@ class SynBotPrompt:
                     discordFiles = []
                     for i in r['images']:
 
-                        # Skip ControlNet images
-                        if self.type == "inpaint" or self.type == "outfits":
+                        # Skip/Remove ControlNet images from output
+                        if self.type == "inpaint" or self.type == "outfits" or self.type == "birth":
                             batchSize = payload["batch_size"]
-                            if r["images"].index(i) >= batchSize: #Last 2 images are always ControlNet, Depth and OpenPose
+                            if r["images"].index(i) >= batchSize: #Last 2 images are always ControlNet, Depth or OpenPose
+                                continue # loop to next image
+
+                        # Remove background
+                        if self.removeBG:
+                            if self.type != "birth" or not self.hirez: # removing the BG before superHirez is a bad idea
+                                i = await self.removeBackground(i, self.URL, self.ctx) if self.removeBG else i
+
+
+                        # Image is in base64, convert it to a discord.File
+                        bytes = io.BytesIO(base64.b64decode(i.split(",",1)[0]))
+                        bytes.seek(0)
+                        discordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}.png")
+                        discordFiles.append(discordFile)
+
+
+                    # get available tags
+                    tags = self.outputChanel.available_tags
+                    # Prepare the tag to give to the new thread
+                    forumTag = None
+                    for tag in tags:
+                        if tag.name.lower() == self.type.lower():
+                            forumTag = tag
+                            break
+
+                    
+                    # if the type is "birth" and "hirez", send do a super-hirez on the image
+                    if self.type == "birth" and self.hirez:
+                        await self.superHirez(r['images'][0])
+                        return
+
+
+
+                    await self.outputChanel.create_thread(
+                        name=f"{self.type.upper()} by {self.ctx.message.author.display_name}", 
+                        content=f"{self.ctx.author.mention} generated this image with prompt:\n```{self.ctx.message.content}``` and seed: {responseSeedUsed}", 
+                        files=discordFiles,
+                        applied_tags=[forumTag]
+                    )
+                
+                else:
+                    await self.ctx.send(f"{self.ctx.author.mention} -> API server returned an unknown error. Try again?")
+                    print(response)
+        
+
+
+    # Inpaint at 2X the image's size and 0.5 denoise
+    async def superHirez(self, b64=None):
+
+        # Only use the first image in discordFiles
+        b64Image = b64.split(",",1)[0]
+        image = getImageFormBase64(b64Image)
+        image.save("output.png")
+        # # Write the stuff
+        # with open("output.png", "wb") as f:
+        #     f.write(bytes.read())                        
+
+        width, height = image.size
+        mask = Image.new("RGB", (width, height), (1, 1, 1))
+        maskB64 = getBase64FromImage(mask)
+
+        payload = {
+            "init_images": [ b64Image ], 
+            "mask": maskB64, 
+            "denoising_strength": 0.5, 
+            "image_cfg_scale": 7, 
+            "mask_blur": 10, 
+            "inpaint_full_res": True,                   #choices=["Whole picture", "Only masked"]
+            "inpaint_full_res_padding": 32, 
+            "inpainting_mask_invert": 0,                #choices=['Inpaint masked', 'Inpaint not masked']
+            "sampler_name": "DPM++ 2M Karras", 
+            "batch_size": 1, 
+            "steps": 30,
+            "seed": self.seedToUse, 
+            "cfg_scale": 7, 
+            "width": width * 1.5, "height": height * 1.5, 
+            "prompt": "masterpiece, best_quality, extremely detailed, intricate, high_details, sharp_focus , best_anatomy, hires, (colorful), beautiful, 4k, magical, adorable, (extraordinary:0.6), (((simple_background))), (((white_background))), multiple_views, reference_sheet, " + self.fixedPrompt, 
+            "negative_prompt": "paintings, sketches, fingers, (worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality, ((monochrome)), ((grayscale)), skin spots, acnes, skin blemishes, age spot, (outdoor:1.6), backlight,(ugly:1.331), (duplicate:1.331), (morbid:1.21), (mutilated:1.21), (tranny:1.331), mutated hands, (poorly drawn hands:1.5), blurry, (bad anatomy:1.21), (bad proportions:1.331), extra limbs, (disfigured:1.331), lowers, bad hands, missing fingers, extra digit, " + self.fixedNegative, 
+            "sampler_index": "DPM++ 2M Karras"
+        }
+        
+        file = open("output.txt", "w")
+        json.dump(payload, file)
+        file.close
+
+        # # Add controlNet OpenPose
+        # payload["alwayson_scripts"] = {
+        #     "controlnet": {
+        #         "args": [
+        #             {
+        #                 "enabled": True,
+        #                 "input_image": b64Image,
+        #                 "module": "openpose",
+        #                 "model": "control_v11p_sd15_openpose [cab727d4]",
+        #                 "weight": .75,  # Apply pose on 75% of the steps
+        #                 "pixel_perfect": True
+        #             },
+        #             {
+        #                 "enabled": True,
+        #                 "input_image": b64Image,
+        #                 "module": "depth_midas",
+        #                 "model": "control_v11f1p_sd15_depth [cfd03158]",
+        #                 "weight": 0.5, # Apply depth only 50% of the steps
+        #                 "guidance": 1.0,
+        #                 "guidance_start": 0.0,
+        #                 "guidance_end": 0.5,
+        #                 "pixel_perfect": True
+        #             }
+        #         ]
+        #     }
+        # }    
+
+        # Prepare payload
+        apiPath = "/sdapi/v1/img2img"
+
+        # Sending API call request
+        print(f"Sending request to {self.URL}{apiPath} ...")
+        async with aiohttp.ClientSession(loop=self.ctx.bot.loop) as session:
+            async with session.post(url=f'{self.URL}{apiPath}', json=payload)as response:
+                print("Request returned: " + str(response.status))
+                if response.status == 200:
+                    r = await response.json()
+                    # Extract the seed that was used to generate the image
+                    info = r["info"]
+                    infoJson = json.loads(info)
+                    responseSeedUsed = infoJson["seed"]
+
+                    # looping response to get actual image
+                    discordFiles = []
+                    for i in r['images']:
+
+                        # Skip/Remove ControlNet images from output
+                        if self.type == "inpaint" or self.type == "outfits" or self.type == "birth":
+                            batchSize = payload["batch_size"]
+                            if r["images"].index(i) >= batchSize: #Last 2 images are always ControlNet, Depth or OpenPose
                                 continue # loop to next image
 
                         # Remove background
@@ -544,17 +768,23 @@ class SynBotPrompt:
                         discordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}.png")
                         discordFiles.append(discordFile)
 
+                    # get available tags
+                    tags = self.outputChanel.available_tags
+                    # Prepare the tag to give to the new thread
+                    forumTag = None
+                    for tag in tags:
+                        if tag.name.lower() == self.type.lower():
+                            forumTag = tag
+                            break
 
+                    # Post on Discord Forum
                     await self.outputChanel.create_thread(
                         name=f"{self.type.upper()} by {self.ctx.message.author.display_name}", 
                         content=f"{self.ctx.author.mention} generated this image with prompt:\n```{self.ctx.message.content}``` and seed: {responseSeedUsed}", 
-                        files=discordFiles
+                        files=discordFiles,
+                        applied_tags=[forumTag]
                     )
                 
                 else:
                     await self.ctx.send(f"{self.ctx.author.mention} -> API server returned an unknown error. Try again?")
                     print(response)
-        
-
-
-

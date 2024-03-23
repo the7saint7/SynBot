@@ -7,7 +7,7 @@ import sys
 # import asyncio
 import discord
 # import requests
-from PIL import Image
+# from PIL import Image
 from dotenv import load_dotenv
 from discord.ext import commands
 from LORA_Helper import LORA_List
@@ -82,6 +82,8 @@ async def addToQueue(ctx, newPrompt: SynBotPrompt):
         await ctx.send(f"Queuing request from {ctx.message.author.display_name} , in " + newPrompt.format + appendHirez + " format, on " + synBot + ".")
     elif newPrompt.type == "outfits":
         await ctx.send(f"**Creating new outfit** for {newPrompt.outfitsCharacter} on **{synBot}** , requested by {ctx.message.author.display_name}.")
+    elif newPrompt.type == "birth":
+        await ctx.send(f"**Creating new character** for {ctx.message.author.display_name}, on **{synBot}**.")
     else:
         await ctx.send(f"Queuing request from {ctx.message.author.display_name}, on " + synBot + ".")
     ################ END resume ################################
@@ -92,70 +94,26 @@ async def addToQueue(ctx, newPrompt: SynBotPrompt):
 # TXT2IMG
 @bot.command()
 async def txt2img(ctx):
-    # Select proper channel to handle requests
-    input_channel_id = int(os.getenv("DEV_CHANNEL")) if env_dev else int(os.getenv("INPUT_CHANEL"))
-
-    # Ignore generated request if it's not coming from the right channel
-    inputChannel = bot.get_channel(input_channel_id)
-    if ctx.channel != inputChannel:
-        print ("Request made in wrong channel")
-        return
-
-    # Fetch the channel where the image will be sent to. This might be move, if I ever find a way to thread the API calls.
-    output_channel_id = int(os.getenv("DEV_FORUM")) if env_dev else int(os.getenv("FORUM_CHANNEL"))
-    outputChannel = bot.get_channel(output_channel_id)
-
-    newPrompt = SynBotPrompt(ctx, outputChannel, type="txt2img")
-    if newPrompt.isValid:
-        await addToQueue(ctx, newPrompt)
-    else:
-        await ctx.send(newPrompt.errorMsg)        
+    await executePrompt(ctx, type="txt2img")
 
 # IMG2IMG
 @bot.command()
 async def img2img(ctx):
-    # Select proper channel to handle requests
-    input_channel_id = int(os.getenv("DEV_CHANNEL")) if env_dev else int(os.getenv("INPUT_CHANEL"))
-
-    # Ignore generated request if it's not coming from the right channel
-    inputChannel = bot.get_channel(input_channel_id)
-    if ctx.channel != inputChannel:
-        print ("Request made in wrong channel")
-        return
-
-    # Fetch the channel where the image will be sent to. This might be move, if I ever find a way to thread the API calls.
-    output_channel_id = int(os.getenv("DEV_FORUM")) if env_dev else int(os.getenv("FORUM_CHANNEL"))
-    outputChannel = bot.get_channel(output_channel_id)
-
-    newPrompt = SynBotPrompt(ctx, outputChannel, type="img2img")
-    if newPrompt.isValid:
-        await addToQueue(ctx, newPrompt)
-    else:
-        await ctx.send(newPrompt.errorMsg)
+    await executePrompt(ctx, type="img2img")
 
 @bot.command()
 async def inpaint(ctx):
-    # Select proper channel to handle requests
-    input_channel_id = int(os.getenv("DEV_CHANNEL")) if env_dev else int(os.getenv("INPUT_CHANEL"))
-
-    # Ignore generated request if it's not coming from the right channel
-    inputChannel = bot.get_channel(input_channel_id)
-    if ctx.channel != inputChannel:
-        print ("Request made in wrong channel")
-        return
-
-    # Fetch the channel where the image will be sent to. This might be move, if I ever find a way to thread the API calls.
-    output_channel_id = int(os.getenv("DEV_FORUM")) if env_dev else int(os.getenv("FORUM_CHANNEL"))
-    outputChannel = bot.get_channel(output_channel_id)
-
-    newPrompt = SynBotPrompt(ctx, outputChannel, type="inpaint")
-    if newPrompt.isValid:
-        await addToQueue(ctx, newPrompt)
-    else:
-        await ctx.send(newPrompt.errorMsg)        
+    await executePrompt(ctx, type="inpaint")
 
 @bot.command()
 async def outfits(ctx):
+    await executePrompt(ctx, type="outfits")
+
+@bot.command()
+async def birth(ctx):
+    await executePrompt(ctx, type="birth")
+
+async def executePrompt(ctx, type=None):
     # Select proper channel to handle requests
     input_channel_id = int(os.getenv("DEV_CHANNEL")) if env_dev else int(os.getenv("INPUT_CHANEL"))
 
@@ -169,11 +127,42 @@ async def outfits(ctx):
     output_channel_id = int(os.getenv("DEV_FORUM")) if env_dev else int(os.getenv("FORUM_CHANNEL"))
     outputChannel = bot.get_channel(output_channel_id)
 
-    newPrompt = SynBotPrompt(ctx, outputChannel, type="outfits")
+    newPrompt = SynBotPrompt(ctx, outputChannel, type)
     if newPrompt.isValid:
         await addToQueue(ctx, newPrompt)
     else:
         await ctx.send(newPrompt.errorMsg)        
+
+
+
+# @bot.command()
+# async def fixtags(ctx):
+
+#     # Select proper channel to handle requests
+#     input_channel_id = int(os.getenv("DEV_CHANNEL")) if env_dev else int(os.getenv("INPUT_CHANEL"))
+
+#     # Ignore generated request if it's not coming from the right channel
+#     inputChannel = bot.get_channel(input_channel_id)
+#     if ctx.channel != inputChannel:
+#         print ("Request made in wrong channel")
+#         return
+
+#     # Fetch the channel where the image will be sent to. This might be move, if I ever find a way to thread the API calls.
+#     output_channel_id = int(os.getenv("DEV_FORUM")) if env_dev else int(os.getenv("FORUM_CHANNEL"))
+#     outputChannel = bot.get_channel(output_channel_id)
+
+#     tags = outputChannel.available_tags
+#     for thread in outputChannel.threads:
+#         tagsToAdd = []
+#         if len(thread.applied_tags) == 0:
+#             for tag in tags:
+#                 if thread.name.lower().startswith(tag.name.lower()):
+#                     tagsToAdd.append(tag)
+#             if len(tagsToAdd) > 0:
+#                 await thread.edit(applied_tags=tagsToAdd)
+
+
+
 
 # Run Bot in loop
 bot.run(os.getenv("TOKEN"))
