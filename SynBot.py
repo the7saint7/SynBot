@@ -113,6 +113,10 @@ async def outfits(ctx):
 async def birth(ctx):
     await executePrompt(ctx, type="birth")
 
+@bot.command()
+async def expressions(ctx):
+    await executePrompt(ctx, type="expressions")
+
 async def executePrompt(ctx, type=None):
     # Select proper channel to handle requests
     input_channel_id = int(os.getenv("DEV_CHANNEL")) if env_dev else int(os.getenv("INPUT_CHANEL"))

@@ -1,17 +1,19 @@
 import os
 import io
+import cv2
 import json
 import base64
 import aiohttp
 import asyncio
 import discord
 import requests
+import numpy as np
 from PIL import Image
 from dotenv import load_dotenv
 from LORA_Helper import LORA_List
 from discord.ext import tasks, commands
 from charactersList import charactersLORA
-from openPoses import getPose, getLewdPose, getImageAtPath, getBase64FromImage, getImageFormBase64
+from openPoses import getPose, getLewdPose, getImageAtPath, getBase64FromImage, getImageFormBase64, getBase64StringFromOpenCV
 
 load_dotenv()
 
@@ -63,15 +65,15 @@ class SynBotPrompt:
         self.denoise = 0.5
         self.errorMsg = None
 
-        # img2img
-        self.img2imgImage = None
-        self.img2img_width = 640
-        self.img2img_height = 360
-
-        # inpaint
-        self.inpaintBaseImage = None
-        self.inpaintMaskImage = None
-
+        # ControlNet
+        self.enable_openPose = False
+        self.enable_depth = False
+        self.enable_softEdge = False
+        
+        # Common uploadedImages
+        self.userBaseImage = None
+        self.userControlNetImage = None
+        
         # outfits
         self.outfitsCharacter = None
         self.outfitsPose = None
@@ -79,13 +81,16 @@ class SynBotPrompt:
 
         # birth
         self.birthPoses = []
-        self.birthBaseImage = None
+
+        # expressions
+        self.expressions = []
+        self.includeBlush = False
 
         # # The message that was sent
         message = str(self.ctx.message.content)
 
         # Remove all possible prefixes
-        prefixes = ["!Syn-txt2img", "!Syn-img2img", "!Syn-inpaint", "!Syn-outfits", "!Syn2-txt2img", "!Syn2-img2img", "!Syn2-inpaint", "!Syn2-outfits", "!Syn-birth", "!Syn2-birth"]
+        prefixes = ["!Syn-txt2img", "!Syn-img2img", "!Syn-inpaint", "!Syn-outfits", "!Syn2-txt2img", "!Syn2-img2img", "!Syn2-inpaint", "!Syn2-outfits", "!Syn-birth", "!Syn2-birth", "!Syn-expressions", "!Syn2-expressions"]
         for prefix in prefixes:
             message = message.removeprefix(prefix)
 
@@ -106,6 +111,15 @@ class SynBotPrompt:
             self.isValid = False
             return
 
+        # ControlNet parameters
+        # Some renders will require to read the passed image if controlnet is enabled
+        if "controlNet" in jsonData:
+            controlnet = jsonData["controlNet"]
+            if "depth" in controlnet : self.enable_depth = True
+            if "openPose" in controlnet : self.enable_openPose = True
+            if "softEdge" in controlnet : self.enable_softEdge = True
+        
+
         ###### TXT2IMG specific init
         if self.type == "txt2img":
             if "format" in jsonData:
@@ -121,34 +135,53 @@ class SynBotPrompt:
                 self.isValid = False
                 return
             
+
+            # Controlnet double-check
+            if self.hasControlNet():
+                attachmentCount = len(self.ctx.message.attachments)
+                if attachmentCount == 0:
+                    self.errorMsg = f"{self.ctx.author.mention} Missing a Image attachment for **controlNet** parameter"
+                    self.isValid = False
+                    return
+                
+                ###################### START lOADING USER SUBMITTED IMAGE
+                self.loadUserSubmittedImages()
+                self.userControlNetImage = self.userBaseImage
+                if self.userControlNetImage == None:
+                    self.errorMsg = "Could not read sent image. Request stopped."
+                    self.isValid = False
+                    return
+                ###################### END LOADING USER SUBMITTED IMAGE
+
+
+            
             self.format = "640x360" if self.formatStr.strip() == "landscape" else "360x640"
         ###### END TXT2IMG specific init
 
         ###### IMG2IMG specific init
         if self.type == "img2img":
-            hasAttachments = len(self.ctx.message.attachments) >= 1
-            if not hasAttachments:
+            attachmentCount = len(self.ctx.message.attachments)
+
+            # Do we have an attachment?
+            if attachmentCount == 0:
                 self.errorMsg = f"{self.ctx.author.mention} Missing a file attachment in IMG2IMG command"
                 self.isValid = False
                 return
+
+            if "denoise" in jsonData:
+                self.denoise = jsonData["denoise"]
             else:
+                self.errorMsg = f"{self.ctx.author.mention} Missing **'denoise'** parameter"
+                self.isValid = False
+                return
 
-                if "denoise" in jsonData:
-                    self.denoise = jsonData["denoise"]
-                else:
-                    self.errorMsg = f"{self.ctx.author.mention} Missing **'denoise'** parameter"
-                    self.isValid = False
-                    return
-
-                ###################### START lOADING USER SUBMITTED IMAGE
-                print("Loading sent image as attachments...")
-                self.img2imgImage = self.encode_discord_image(self.ctx.message.attachments[0].url) # Base?
-                print("Attachments loaded in memory.")
-                if self.img2imgImage == None:
-                    self.errorMsg = "Could not read sent image. Request stopped."
-                    self.isValid = False
-                    return
-                ###################### END LOADING USER SUBMITTED IMAGE
+            ###################### START lOADING USER SUBMITTED IMAGE
+            self.loadUserSubmittedImages()
+            if self.userBaseImage == None:
+                self.errorMsg = "Could not read first image. Request stopped."
+                self.isValid = False
+                return
+            ###################### END LOADING USER SUBMITTED IMAGE
 
 
         ###### END IMG2IMG specific init
@@ -156,35 +189,32 @@ class SynBotPrompt:
 
         ###### INPAINT specific init
         if self.type == "inpaint":
-            hasAttachments = len(self.ctx.message.attachments) >= 2
-            if not hasAttachments:
-                self.errorMsg = f"{self.ctx.author.mention} Missing 2 file attachment in INPAINT command"
+            attachmentCount = len(self.ctx.message.attachments)
+            if attachmentCount < 2:
+                self.errorMsg = f"{self.ctx.author.mention} Missing **base Image** or **masked image** attachment in INPAINT command"
                 self.isValid = False
                 return
+
+            if "denoise" in jsonData:
+                self.denoise = jsonData["denoise"]
             else:
+                self.errorMsg = f"{self.ctx.author.mention} Missing **'denoise'** parameter"
+                self.isValid = False
+                return
 
-                if "denoise" in jsonData:
-                    self.denoise = jsonData["denoise"]
-                else:
-                    self.errorMsg = f"{self.ctx.author.mention} Missing **'denoise'** parameter"
-                    self.isValid = False
-                    return
-
-                ###################### START lOADING USER SUBMITTED BASE AND MASK IMAGE
-                print("Loading sent images as attachments...")
-                self.inpaintBaseImage = self.encode_discord_image(self.ctx.message.attachments[0].url) # Base?
-                self.inpaintMaskImage = self.encode_discord_image(self.ctx.message.attachments[1].url) # Mask?
-                print("Attachments loaded in memory.")
-                if self.inpaintBaseImage == None or self.inpaintMaskImage == None:
-                    self.errorMsg = "Could not read sent images. Request stopped."
-                    self.isValid = False
-                    return
-                ###################### END LOADING USER SUBMITTED BASE AND MASK IMAGE
+            ###################### START lOADING USER SUBMITTED BASE AND MASK IMAGE
+            self.loadUserSubmittedImages()
+            if self.userBaseImage == None or self.userControlNetImage == None:
+                self.errorMsg = "Could not read sent images. Request stopped."
+                self.isValid = False
+                return
+            ###################### END LOADING USER SUBMITTED BASE AND MASK IMAGE
 
 
         ###### END INPAINT specific init
 
         ###### OUTFITS specific init
+        # Outfits do not support attachments. Use INPAINT for custom outfit-like execution
         if self.type == "outfits":
             
             # Default removeBG True if not specified in prompt parameters (will be overwritten a few lines bellow if specified in parameters)
@@ -229,14 +259,14 @@ class SynBotPrompt:
                 self.errorMsg = f"{self.ctx.author.mention} -> {baseImagePath} does not exist."
                 self.isValid = False
                 return
-            self.inpaintBaseImage = getImageAtPath(baseImagePath)
+            self.userBaseImage = getImageAtPath(baseImagePath)
             
             maskImagePath = f"./sprites/{self.outfitsCharacter}/{self.outfitsPose}_{mask}.png"
             if not os.path.exists(maskImagePath):
                 self.errorMsg = f"{self.ctx.author.mention} -> {maskImagePath} does not exist."
                 self.isValid = False
                 return
-            self.inpaintMaskImage = getImageAtPath(maskImagePath)
+            self.userControlNetImage = getImageAtPath(maskImagePath)
             ###################### END DEFAULT BASE AND MASK IMAGE
 
         ###### END OUTFITS specific init
@@ -247,45 +277,128 @@ class SynBotPrompt:
             # Default removeBG True if not specified in prompt parameters (will be overwritten a few lines bellow if specified in parameters)
             self.removeBG = True
 
-            # Character Pose
-            self.birthPoses = jsonData["birthPoses"] if "birthPoses" in jsonData else None
-            if self.birthPoses == None:
-                self.errorMsg = f"{self.ctx.author.mention} Missing **'birthPoses'** parameter"
-                self.isValid = False
-                return
-            if len(self.birthPoses) > 2:
-                self.errorMsg = f"{self.ctx.author.mention} Too many poses in **'birthPoses'** parameter. Maximum of 2 poses allowed."
-                self.isValid = False
-                return
-            
-            # Loop the poses and get their bytes? Then merge them into a single image, side by side
-            poseImages = []
-            for pose in self.birthPoses:
-                posePath = f"./poses/portrait_cowboy_shot/{pose}.png"
-                if not os.path.exists(posePath):
-                    self.errorMsg = f"{self.ctx.author.mention} -> {posePath} does not exist."
+            # 2 Modes: selecting poses (original), or passing a controlNet Image for the character pose(s)
+            if self.hasControlNet():
+                print ("ControlNet detected for BIRTH command")
+
+                # using passed image as controlnet
+                attachmentCount = len(self.ctx.message.attachments)
+
+                # Do we have an attachment?
+                if attachmentCount == 0:
+                    self.errorMsg = f"{self.ctx.author.mention} Missing a **Image** attachment in BIRTH command"
                     self.isValid = False
                     return
-                poseImages.append(Image.open(posePath))
 
-            # Concatenate the images
-            widths, heights = zip(*(i.size for i in poseImages))
+                ###################### START lOADING USER SUBMITTED IMAGE
+                self.loadUserSubmittedImages()
+                # Twist, controlNet image is actually the baseImage
+                self.userControlNetImage = self.userBaseImage
 
-            total_width = sum(widths)
-            max_height = max(heights)
+                if self.userControlNetImage == None:
+                    self.errorMsg = "Could not read submitted image. Request stopped."
+                    self.isValid = False
+                    return
+                ###################### END LOADING USER SUBMITTED IMAGE
 
-            new_im = Image.new('RGB', (total_width, max_height))
+            else:
+                # using selected poses as controlnet
+                print ("No controlNet for BIRTH command")
 
-            x_offset = 0
-            for im in poseImages:
-                new_im.paste(im, (x_offset,0))
-                x_offset += im.size[0]
-            
-            self.birthBaseImage = new_im
+                # Character Pose
+                self.birthPoses = jsonData["birthPoses"] if "birthPoses" in jsonData else None
+                if self.birthPoses == None:
+                    self.errorMsg = f"{self.ctx.author.mention} Missing **'birthPoses'** parameter"
+                    self.isValid = False
+                    return
+                if len(self.birthPoses) > 2:
+                    self.errorMsg = f"{self.ctx.author.mention} Too many poses in **'birthPoses'** parameter. Maximum of 2 poses allowed."
+                    self.isValid = False
+                    return
+                
+                # Loop the poses and get their bytes? Then merge them into a single image, side by side
+                poseImages = []
+                for pose in self.birthPoses:
+                    posePath = f"./poses/portrait_cowboy_shot/{pose}.png"
+                    if not os.path.exists(posePath):
+                        self.errorMsg = f"{self.ctx.author.mention} -> {posePath} does not exist."
+                        self.isValid = False
+                        return
+                    poseImages.append(Image.open(posePath))
+
+                # Concatenate the images
+                widths, heights = zip(*(i.size for i in poseImages))
+
+                total_width = sum(widths)
+                max_height = max(heights)
+
+                new_im = Image.new('RGB', (total_width, max_height))
+
+                x_offset = 0
+                for im in poseImages:
+                    new_im.paste(im, (x_offset,0))
+                    x_offset += im.size[0]
+                
+                self.userControlNetImage = getBase64FromImage(new_im)
+
+                # Put our image in controlNet later
+                self.enable_openPose = True
 
 
         ###### END BIRTH specific init
+            
+        ###### EXPRESSIONS specific init
+        if self.type == "expressions":
 
+            # Attachment logic:
+                # if hasControlNet() -> Use the second image in controlnet
+                # else use second image as mask
+                # if no 2nd image, use as a normal IMG2IMG
+
+            attachmentCount = len(self.ctx.message.attachments)
+            if attachmentCount == 0:
+                self.errorMsg = f"{self.ctx.author.mention} Missing **Image** attachment in EXPRESSIONS command"
+                self.isValid = False
+                return
+
+            # Dont need a controlNet image, it's optional
+            # if self.hasControlNet() and attachmentCount < 2:
+            #     self.errorMsg = f"{self.ctx.author.mention} Missing **ControlNet Image** attachment in EXPRESSIONS command"
+            #     self.isValid = False
+            #     return
+
+            if not self.hasControlNet() and attachmentCount < 2:
+                self.errorMsg = f"{self.ctx.author.mention} Missing **Mask Image** attachment in EXPRESSIONS command, OR include the **controlNet** parameter"
+                self.isValid = False
+                return
+            
+            if "expressions" in jsonData:
+                self.expressions = jsonData["expressions"]
+            
+            if len(self.expressions) == 0:
+                self.errorMsg = f"{self.ctx.author.mention} Missing **'expressions'** parameter"
+                self.isValid = False
+                return
+
+            if "denoise" in jsonData:
+                self.denoise = jsonData["denoise"]
+            else:
+                self.errorMsg = f"{self.ctx.author.mention} Missing **'denoise'** parameter"
+                self.isValid = False
+                return
+            
+            # Auto add Blush
+            self.includeBlush = jsonData["includeBlush"] == "true" if "includeBlush" in jsonData else False
+
+            # Re-using the inpaint image variables
+            ###################### START lOADING USER SUBMITTED BASE AND MASK IMAGE
+            self.loadUserSubmittedImages()
+            if self.userBaseImage == None:
+                self.errorMsg = "Could not read sent images. Request stopped."
+                self.isValid = False
+                return
+            ###################### END LOADING USER SUBMITTED BASE AND MASK IMAGE
+        ###### END EXPRESSIONS specific init
 
         # Optional parameters
         if "negative" in jsonData: self.userNegative = jsonData["negative"]
@@ -296,6 +409,7 @@ class SynBotPrompt:
         if "lewdPose" in jsonData: self.lewdPoseNumber = jsonData["lewdPose"]
         if "removeBG" in jsonData: self.removeBG = jsonData["removeBG"] == "true"
         if "lewdPose" in jsonData: self.lewdPoseNumber = jsonData["lewdPose"]
+        # if "enableControlNet" in jsonData: self.enableControlNet= jsonData["enableControlNet"] == "true"
 
         # Reset batchCount if hirez
         if self.hirez and self.batchCount != 1:
@@ -320,20 +434,59 @@ class SynBotPrompt:
                 self.fixedNegative = self.fixedNegative.replace(key, LORA_List[key])
         ############### END Replace prompt tags
 
+
+    # Utility function to load user images
+    def loadUserSubmittedImages(self):
+
+        attachmentCount = len(self.ctx.message.attachments)
+
+        ###################### START lOADING USER SUBMITTED IMAGE
+        print("Loading sent image as attachments...")
+
+        # Base image is always first?
+        baseImage =self.encode_discord_image(self.ctx.message.attachments[0].url, False)
+
+        # Double check uploaded image dimension, resize if needed
+        if baseImage.width > 1280 or baseImage.height > 1280:
+            print("Uploaded image is too large, resizing...")
+            baseImage.thumbnail((1280,1280), Image.Resampling.LANCZOS)
+            print(f"Resized: {baseImage.width}, {baseImage.height}")
+        
+        # Back to base64
+        self.userBaseImage = getBase64FromImage(baseImage)
+
+        if attachmentCount > 1:
+            ctrlNetImage =self.encode_discord_image(self.ctx.message.attachments[1].url, False) # controlNet?
+            # Double check uploaded image dimension, resize if needed
+            if ctrlNetImage.width > 1280 or ctrlNetImage.height > 1280:
+                print("Uploaded image is too large, resizing...")
+                ctrlNetImage.thumbnail((1280,1280), Image.Resampling.LANCZOS)
+                print(f"Resized: {ctrlNetImage.width}, {ctrlNetImage.height}")
+            
+            # Back to base64
+            self.userControlNetImage = getBase64FromImage(ctrlNetImage)
+        imageCount = 1 if self.userBaseImage != None else 0
+        imageCount += 1 if self.userControlNetImage != None else 0
+        print(f"Attachments loaded in memory. ({imageCount})")
+        ###################### END LOADING USER SUBMITTED IMAGE
+
+    # Utility function to check all parameters at once
+    def hasControlNet(self):
+        return self.enable_depth or self.enable_openPose or self.enable_softEdge
+
+
     # Process an image URL and return a base64 encoded string
-    def encode_discord_image(self, image_url):
+    def encode_discord_image(self, image_url, asBase64=True):
         try:
             response = requests.get(image_url)
             image = Image.open(io.BytesIO(response.content)).convert('RGB')
             buffered = io.BytesIO()
             image.save(buffered, format="JPEG")
 
-            # For img2img and maybe inpaint
-            width, height = image.size
-            self.img2img_width = width
-            self.img2img_height = height
-
-            return base64.b64encode(buffered.getvalue()).decode('utf-8')
+            if asBase64:
+                return base64.b64encode(buffered.getvalue()).decode('utf-8')
+            else:
+                return image
         except Exception as e:
             print(f"Error in encode_discord_image: {e}")
             return None
@@ -361,7 +514,7 @@ class SynBotPrompt:
         #########################        TXT2IMG         #####################################
         if self.type == "txt2img":
             
-            # Where do we end the request?
+            # Where do we send the request?
             apiPath = "/sdapi/v1/txt2img"
 
             payload = {
@@ -398,30 +551,43 @@ class SynBotPrompt:
                 # Pick a pose according toe format and "shot"
                 poseImage = getLewdPose(self.lewdPoseNumber)
 
+            # Add/Enable openPose from selected pose or lewdPose image
             if poseImage != None:
-                payload["alwayson_scripts"] = {
-                    "controlnet": {
-                        "args": [
-                            {
-                                "input_image": poseImage,
-                                "model": "control_v11p_sd15_openpose [cab727d4]",
-                                "weight": 1,
-                                # "width": 512,
-                                # "height": 768,
-                                "pixel_perfect": True
-                            }
-                        ]
-                    }
-                }
+                self.addControlNetToPayload(payload, poseImage, "openPose")
+                # payload["alwayson_scripts"] = {
+                #     "controlnet": {
+                #         "args": [
+                #             {
+                #                 "input_image": poseImage,
+                #                 "model": "control_v11p_sd15_openpose [cab727d4]",
+                #                 "weight": 1,
+                #                 # "width": 512,
+                #                 # "height": 768,
+                #                 "pixel_perfect": True
+                #             }
+                #         ]
+                #     }
+                # }
+            
+            # Add ControlNet if no pose/lewdPose and everything is in order
+            elif self.hasControlNet() and self.userControlNetImage != None:
+                if self.enable_depth:
+                    self.addControlNetToPayload(payload, self.userControlNetImage, "depth")
+                if self.enable_openPose:
+                    self.addControlNetToPayload(payload, self.userControlNetImage, "openPose")
+                if self.enable_softEdge:
+                    self.addControlNetToPayload(payload, self.userControlNetImage, "softEdge")
 
         #########################         IMG2IMG        #####################################
         elif self.type == "img2img":
 
-            # Where do we end the request?
+            # Where do we send the request?
             apiPath = "/sdapi/v1/img2img"
 
+            pilImage = getImageFormBase64(self.userBaseImage)
+
             payload = {
-                "init_images": [ self.img2imgImage ], 
+                "init_images": [ self.userBaseImage ], 
                 "denoising_strength": self.denoise, 
                 "image_cfg_scale": 7, 
                 "sampler_name": "DPM++ 2M Karras", 
@@ -429,17 +595,29 @@ class SynBotPrompt:
                 "steps": 30,
                 "seed": self.seedToUse, 
                 "cfg_scale": 7, 
-                "width": self.img2img_width, "height": self.img2img_height, 
-                "prompt": "masterpiece, best_quality, extremely detailed, intricate, high_details, sharp_focus , best_anatomy, hires, (colorful), beautiful, 4k, magical, adorable, (extraordinary:0.6), (((simple_background))), (((white_background))), multiple_views, reference_sheet, " + self.fixedPrompt, 
-                "negative_prompt": "paintings, sketches, fingers, (worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality, ((monochrome)), ((grayscale)), skin spots, acnes, skin blemishes, age spot, (outdoor:1.6), backlight,(ugly:1.331), (duplicate:1.331), (morbid:1.21), (mutilated:1.21), (tranny:1.331), mutated hands, (poorly drawn hands:1.5), blurry, (bad anatomy:1.21), (bad proportions:1.331), extra limbs, (disfigured:1.331), lowers, bad hands, missing fingers, extra digit, " + self.fixedNegative, 
+                "width": pilImage.width, "height": pilImage.height, 
+                "prompt": self.fixedPrompt, 
+                "negative_prompt": self.fixedNegative, 
                 "sampler_index": "DPM++ 2M Karras"
             }
 
+            # Add ControlNet if requested in the parameters
+            if self.hasControlNet():
+
+                # Use controlNet image if one was passed, if not, baseImage
+                imageToUse = self.userControlNetImage if self.userControlNetImage != None else self.userBaseImage
+
+                if self.enable_depth:
+                    self.addControlNetToPayload(payload, imageToUse, "depth")
+                if self.enable_openPose:
+                    self.addControlNetToPayload(payload, imageToUse, "openPose")
+                if self.enable_softEdge:
+                    self.addControlNetToPayload(payload, imageToUse, "softEdge")
             
         #########################        INPAINT       #####################################
         elif self.type == "inpaint":
 
-            # Where do we end the request?
+            # Where do we send the request?
             apiPath = "/sdapi/v1/img2img"
 
             # This is how rescaled the inpainting will be. I should make this another parameter TODO
@@ -450,11 +628,11 @@ class SynBotPrompt:
                 height = 856
 
             payload = {
-                "init_images": [ self.inpaintBaseImage ], 
-                "mask": self.inpaintMaskImage, 
+                "init_images": [ self.userBaseImage ], 
+                "mask": self.userControlNetImage,  # not really a controlnet, but the mask image
                 "denoising_strength": self.denoise, 
                 "image_cfg_scale": 7, 
-                "mask_blur": 10, 
+                "mask_blur": 4, 
                 "inpaint_full_res": True,                   #choices=["Whole picture", "Only masked"]
                 "inpaint_full_res_padding": 32, 
                 "inpainting_mask_invert": 0,                #choices=['Inpaint masked', 'Inpaint not masked']
@@ -464,43 +642,25 @@ class SynBotPrompt:
                 "seed": self.seedToUse, 
                 "cfg_scale": 7, 
                 "width": width, "height": height, 
-                "prompt": "masterpiece, best_quality, extremely detailed, intricate, high_details, sharp_focus , best_anatomy, hires, (colorful), beautiful, 4k, magical, adorable, (extraordinary:0.6), (((simple_background))), (((white_background))), multiple_views, reference_sheet, " + self.fixedPrompt, 
-                "negative_prompt": "paintings, sketches, fingers, (worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality, ((monochrome)), ((grayscale)), skin spots, acnes, skin blemishes, age spot, (outdoor:1.6), backlight,(ugly:1.331), (duplicate:1.331), (morbid:1.21), (mutilated:1.21), (tranny:1.331), mutated hands, (poorly drawn hands:1.5), blurry, (bad anatomy:1.21), (bad proportions:1.331), extra limbs, (disfigured:1.331), lowers, bad hands, missing fingers, extra digit, " + self.fixedNegative, 
+                "prompt": self.fixedPrompt, 
+                "negative_prompt": self.fixedNegative, 
                 "sampler_index": "DPM++ 2M Karras"
             }
 
-            # Add controlNet OpenPose
-            payload["alwayson_scripts"] = {
-                "controlnet": {
-                    "args": [
-                        {
-                            "enabled": True,
-                            "input_image": self.inpaintBaseImage,
-                            "module": "openpose",
-                            "model": "control_v11p_sd15_openpose [cab727d4]",
-                            "weight": .75,  # Apply pose on 75% of the steps
-                            "pixel_perfect": True
-                        },
-                        {
-                            "enabled": True,
-                            "input_image": self.inpaintBaseImage,
-                            "module": "depth_midas",
-                            "model": "control_v11f1p_sd15_depth [cfd03158]",
-                            "weight": 0.5, # Apply depth only 50% of the steps
-                            "guidance": 1.0,
-                            "guidance_start": 0.0,
-                            "guidance_end": 0.5,
-                            "pixel_perfect": True
-                        }
-                    ]
-                }
-            }    
+            # Add ControlNet if requested in the parameters # DO NOT USE "userControlNetImage", it contains the MASK
+            if self.hasControlNet():
+                if self.enable_depth:
+                    self.addControlNetToPayload(payload, self.userBaseImage, "depth")
+                if self.enable_openPose:
+                    self.addControlNetToPayload(payload, self.userBaseImage, "openPose")
+                if self.enable_softEdge:
+                    self.addControlNetToPayload(payload, self.userBaseImage, "softEdge")
 
 
         #########################        OUTFITS       #####################################
         elif self.type == "outfits":
 
-            # Where do we end the request?
+            # Where do we send the request?
             apiPath = "/sdapi/v1/img2img"
 
             # This is how rescaled the inpainting will be.
@@ -512,11 +672,11 @@ class SynBotPrompt:
 
             # API Payload
             payload = {
-                "init_images": [ self.inpaintBaseImage ], 
-                "mask": self.inpaintMaskImage, 
+                "init_images": [ self.userBaseImage ], 
+                "mask": self.userControlNetImage, 
                 "denoising_strength": self.denoise, 
                 "image_cfg_scale": 7, 
-                "mask_blur": 10, 
+                "mask_blur": 4, 
                 "inpaint_full_res": True,                   #choices=["Whole picture", "Only masked"]
                 "inpaint_full_res_padding": 32, 
                 "inpainting_mask_invert": 0,                #choices=['Inpaint masked', 'Inpaint not masked']
@@ -526,53 +686,42 @@ class SynBotPrompt:
                 "seed": self.seedToUse, 
                 "cfg_scale": 7, 
                 "width": width, "height": height, 
-                "prompt": "masterpiece, best_quality, extremely detailed, intricate, high_details, sharp_focus , best_anatomy, hires, (colorful), beautiful, 4k, magical, adorable, (extraordinary:0.6), (((simple_background))), (((white_background))), multiple_views, reference_sheet, " + self.fixedPrompt, 
-                "negative_prompt": "paintings, sketches, fingers, (worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality, ((monochrome)), ((grayscale)), skin spots, acnes, skin blemishes, age spot, (outdoor:1.6), backlight,(ugly:1.331), (duplicate:1.331), (morbid:1.21), (mutilated:1.21), (tranny:1.331), mutated hands, (poorly drawn hands:1.5), blurry, (bad anatomy:1.21), (bad proportions:1.331), extra limbs, (disfigured:1.331), lowers, bad hands, missing fingers, extra digit, " + self.fixedNegative, 
+                "prompt": self.fixedPrompt, 
+                "negative_prompt": self.fixedNegative, 
                 "sampler_index": "DPM++ 2M Karras"
             }
 
-            # Add controlNet OpenPose
-            payload["alwayson_scripts"] = {
-                "controlnet": {
-                    "args": [
-                        {
-                            "enabled": True,
-                            "input_image": self.inpaintBaseImage,
-                            "module": "openpose",
-                            "model": "control_v11p_sd15_openpose [cab727d4]",
-                            "weight": .75,  # Apply pose on 75% of the steps
-                            "pixel_perfect": True
-                        },
-                        {
-                            "enabled": True,
-                            "input_image": self.inpaintBaseImage,
-                            "module": "depth_midas",
-                            "model": "control_v11f1p_sd15_depth [cfd03158]",
-                            "weight": 0.5, # Apply depth only 50% of the steps
-                            "guidance": 1.0,
-                            "guidance_start": 0.0,
-                            "guidance_end": 0.5,
-                            "pixel_perfect": True
-                        }
-                    ]
-                }
-            }
+            # Add openPose as controlNet helper, should I also ad Depth? It might cause the outfit to "mold" to the body if using a nude image :shrug 
+            self.addControlNetToPayload(payload, self.userBaseImage, "openPose")
+
+            ##################################################################################
+            # Outfits do not support attachments. Use INPAINT for custom outfit-like execution
+            ##################################################################################
+            # Add ControlNet if requested in the parameters
+            # if self.hasControlNet():
+            #     if self.enable_depth:
+            #         self.addControlNetToPayload(payload, self.userBaseImage, "depth")
+            #     if self.enable_openPose:
+            #         self.addControlNetToPayload(payload, self.userBaseImage, "openPose")
+            #     if self.enable_softEdge:
+            #         self.addControlNetToPayload(payload, self.userBaseImage, "softEdge")
 
         #########################         BIRTH        #####################################
         elif self.type == "birth":
             
-            # Where do we end the request?
+            # Where do we send the request?
             apiPath = "/sdapi/v1/txt2img"
 
+            pilBaseImage = getImageFormBase64(self.userControlNetImage)
             payload = {
-                "prompt": "((((multiple_views)))), ((solo)), ((solo_focus)), ((from_above)), ((reference sheet)), (((simple_background))), (((white_background))), ((personification)), <lora:multiple views:1>, <lora:Candysprite style:.2>, <lora:Koku_V1.0a:.2>, flat, " + self.fixedPrompt,
-                "negative_prompt": self.fixedNegative + ", shadows",
+                "prompt": self.fixedPrompt,
+                "negative_prompt": self.fixedNegative,
                 "sampler_name": "DPM++ 2M Karras",
                 "batch_size": self.batchCount,
                 "steps": 35,
                 "cfg_scale": 7,
-                "width": self.birthBaseImage.width / 2,
-                "height": self.birthBaseImage.height / 2,
+                "width": pilBaseImage.width / 2,
+                "height": pilBaseImage.height / 2,
                 "restore_faces": False,
                 "seed": self.seedToUse
             }
@@ -581,24 +730,150 @@ class SynBotPrompt:
             payload["denoising_strength"] = 0.45
             payload["enable_hr"] = True
             payload["hr_upscaler"] = "4x-UltraSharp"
-            payload["hr_scale"] = 2.0                         
+            payload["hr_scale"] = 2.0 if self.hirez == False else 3.0                         
             payload["hr_sampler_name"] = "DPM++ 2M Karras"
             payload["hr_second_pass_steps"] = 20
             
-            payload["alwayson_scripts"] = {
-                "controlnet": {
-                    "args": [
-                        {
-                            "input_image": getBase64FromImage(self.birthBaseImage),
-                            "model": "control_v11p_sd15_openpose [cab727d4]",
-                            "weight": 1,
-                            "width": self.birthBaseImage.width / 2,
-                            "height": self.birthBaseImage.height / 2,
-                            "pixel_perfect": True
-                        }
-                    ]
+            # Add ControlNet if requested in the parameters
+            if self.enable_depth:
+                self.addControlNetToPayload(payload, self.userControlNetImage, "depth", preProcess=False)
+            if self.enable_openPose:
+                self.addControlNetToPayload(payload, self.userControlNetImage, "openPose", preProcess=False)
+            if self.enable_softEdge:
+                self.addControlNetToPayload(payload, self.userControlNetImage, "softEdge", preProcess=False)
+
+        #########################       EXPRESSIONS      #####################################
+        elif self.type == "expressions":
+
+            # Attachment logic:
+                # if hasControlNet() -> Use the second image in controlnet
+                # else use second image as mask
+                # if no 2nd image, use as a normal IMG2IMG
+            
+            ########################### EXTRACT FACES TO MAKE RENDERING FASTER
+            # Base 64 to PIL Image
+            pilImage = getImageFormBase64(self.userBaseImage)
+            
+            if not self.hasControlNet(): # controlnetImage used as mask
+                pilImage_mask = getImageFormBase64(self.userControlNetImage)
+
+            # PIL Image to OpenCV
+            open_cv_image = np.array(pilImage, dtype=np.uint8)
+            open_cv_image = cv2.cvtColor(open_cv_image, cv2.COLOR_RGB2BGR)            
+
+            if not self.hasControlNet(): # controlnetImage used as mask
+                open_cv_image_mask = np.array(pilImage_mask, dtype=np.uint8)
+                open_cv_image_mask = cv2.cvtColor(open_cv_image_mask, cv2.COLOR_RGB2BGR)            
+
+            # From: https://github.com/XavierJiezou/anime-face-detection?tab=readme-ov-file#example
+            img_gray = cv2.cvtColor(open_cv_image, cv2.COLOR_BGR2GRAY)
+            img_gray = cv2.equalizeHist(img_gray) 
+            face_cascade = cv2.CascadeClassifier("lbp_anime_face_detect.xml")
+            faces = face_cascade.detectMultiScale(img_gray)
+            minX = pilImage.width
+            minY = pilImage.height
+            maxX = 0
+            maxY = 0
+            for x, y, w, h in faces:
+                minX = min(minX, x)
+                minY = min(minY, y)
+                maxX = max(maxX, x + w)
+                maxY = max(maxY, y + h)
+                # open_cv_image = cv2.rectangle(open_cv_image,  (x, y), (x+w, y+h), (255, 0, 255), 5)
+
+            # Trying extract the face location, to shrink the rendered image and thus making the generation shorter
+            # open_cv_image = cv2.rectangle(open_cv_image, (minX, minY), (maxX, maxY), (0, 0, 255), 5)
+            # cv2.imwrite("test_rects.png", open_cv_image) 
+
+            margin = 18 #number of pixel around the detected area to include in cropped image
+            # cropped_cv_image = open_cv_image[minY:maxY, minX:maxX].copy()
+            # cropped_cv_image_mask = open_cv_image_mask[minY:maxY, minX:maxX].copy()
+            # cv2.imwrite("test.png", cropped_cv_image) 
+            # cv2.imwrite("test2.png", cropped_cv_image_mask) 
+            # cropped_base_image = getBase64StringFromOpenCV(cropped_cv_image)
+            # cropped_mask_image = getBase64StringFromOpenCV(cropped_cv_image_mask)
+
+            if len(faces) == 0:
+                self.errorMsg = f"{self.ctx.author.mention} No face detected in Image. Will have to process the whole image, results may take a long time and are probably going to be bad :man_shrugging:"
+                await self.ctx.send(self.errorMsg)
+                
+
+
+            scaleFactor = 4.0
+            if len(faces) > 0:
+                cropped_pil_image = pilImage.crop((minX, minY, maxX, maxY))
+                if not self.hasControlNet(): # controlnetImage used as mask
+                    cropped_pil_image_mask = pilImage_mask.crop((minX, minY, maxX, maxY))
+            else:
+                scaleFactor = 2.0 # because we're going to process the whole image
+                cropped_pil_image = pilImage
+                if not self.hasControlNet(): # controlnetImage used as mask
+                    cropped_pil_image_mask = pilImage_mask
+
+            cropped_pil_image.save("cropped.png")
+
+            cropped_base_image = getBase64FromImage(cropped_pil_image)
+            if not self.hasControlNet(): # controlnetImage used as mask
+                cropped_mask_image = getBase64FromImage(cropped_pil_image_mask)
+            ########################### END EXTRACT FACES TO MAKE RENDERING FASTER
+
+            # Where do we send the request?
+            apiPath = "/sdapi/v1/img2img"
+            width, height = cropped_pil_image.size
+
+            if not self.hasControlNet():
+                # INPAINT payload
+                payload = {
+                    "init_images": [ cropped_base_image ], 
+                    "mask": cropped_mask_image, 
+                    "denoising_strength": self.denoise, 
+                    "image_cfg_scale": 7, 
+                    "mask_blur": 4, 
+                    "inpaint_full_res_padding": 8, 
+                    "inpaint_full_res": 1,                   # 0 - 'Whole picture' , 1 - 'Only masked' ||| True, # for 'Whole image' (The API doc has a mistake - the value must be a int - not a boolean)
+                    "inpainting_mask_invert": 0,                #choices=['Inpaint masked', 'Inpaint not masked']
+                    "sampler_name": "DPM++ 2M Karras", 
+                    "batch_size": 1, # no batch for you!
+                    "steps": 35,
+                    "seed": self.seedToUse, 
+                    "cfg_scale": 7, 
+                    "width": width * scaleFactor, "height": height * scaleFactor, 
+                    "prompt": self.fixedPrompt, 
+                    "negative_prompt": self.fixedNegative, 
+                    "sampler_index": "DPM++ 2M Karras",
+                    "resize_mode": 1, # Crop and Resize
+                    "script_name": "x/y/z plot",
+                    "script_args": self.get_xyz_script_args(self.expressions),
                 }
-            }
+
+            else:
+                # IMG2IMG payload
+                payload = {
+                    "init_images": [ cropped_base_image ], 
+                    "denoising_strength": self.denoise, 
+                    "image_cfg_scale": 7, 
+                    "sampler_name": "DPM++ 2M Karras", 
+                    "batch_size": 1, # no batch for you!
+                    "steps": 35,
+                    "seed": self.seedToUse, 
+                    "cfg_scale": 7, 
+                    "width": width, "height": height, 
+                    "prompt": self.fixedPrompt, 
+                    "negative_prompt": self.fixedNegative, 
+                    "sampler_index": "DPM++ 2M Karras",
+                    "resize_mode": 1, # Crop and Resize
+                    "script_name": "x/y/z plot",
+                    "script_args": self.get_xyz_script_args(self.expressions),
+                }
+
+                if self.enable_depth:
+                    self.addControlNetToPayload(payload, cropped_base_image, "depth")
+                if self.enable_openPose:
+                    self.addControlNetToPayload(payload, cropped_base_image, "openPose")
+                if self.enable_softEdge:
+                    self.addControlNetToPayload(payload, cropped_base_image, "softEdge")
+
+
         ######################### END PAYLOAD BUILDING #####################################
         
         # Sending API call request
@@ -617,8 +892,13 @@ class SynBotPrompt:
                     discordFiles = []
                     for i in r['images']:
 
+                        # expressions requests always return 2 grid images, skip them
+                        if self.type == "expressions":
+                            if r['images'].index(i) <= 1:
+                                continue
+
                         # Skip/Remove ControlNet images from output
-                        if self.type == "inpaint" or self.type == "outfits" or self.type == "birth":
+                        if False and self.hasControlNet():
                             batchSize = payload["batch_size"]
                             if r["images"].index(i) >= batchSize: #Last 2 images are always ControlNet, Depth or OpenPose
                                 continue # loop to next image
@@ -626,14 +906,16 @@ class SynBotPrompt:
                         # Remove background
                         if self.removeBG:
                             if self.type != "birth" or not self.hirez: # removing the BG before superHirez is a bad idea
-                                i = await self.removeBackground(i, self.URL, self.ctx) if self.removeBG else i
+                                # Do not removeBG on controlNet images
+                                if r["images"].index(i) < payload["batch_size"]:
+                                    i = await self.removeBackground(i, self.URL, self.ctx) if self.removeBG else i
 
-
-                        # Image is in base64, convert it to a discord.File
-                        bytes = io.BytesIO(base64.b64decode(i.split(",",1)[0]))
-                        bytes.seek(0)
-                        discordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}.png")
-                        discordFiles.append(discordFile)
+                        if len(discordFiles) < 10:
+                            # Image is in base64, convert it to a discord.File
+                            bytes = io.BytesIO(base64.b64decode(i.split(",",1)[0]))
+                            bytes.seek(0)
+                            discordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}.png")
+                            discordFiles.append(discordFile)
 
 
                     # get available tags
@@ -646,7 +928,7 @@ class SynBotPrompt:
                             break
 
                     
-                    # if the type is "birth" and "hirez", send do a super-hirez on the image
+                    # if the type is "birth" and "hirez", do a super-hirez on the image
                     if self.type == "birth" and self.hirez:
                         await self.superHirez(r['images'][0])
                         return
@@ -665,6 +947,84 @@ class SynBotPrompt:
                     print(response)
         
 
+    def addControlNetToPayload(self, payload, base64Image, module, preProcess=True):
+
+        if "alwayson_scripts" not in payload:
+            payload["alwayson_scripts"] = {"controlnet": {
+                "args": []
+                }
+            }
+
+        script_payload = payload["alwayson_scripts"]["controlnet"]["args"]
+
+        if module == "openPose":
+            script_payload.append(
+                {
+                    "enabled": True,
+                    "input_image": base64Image,
+                    "module": "openpose",
+                    "model": "control_v11p_sd15_openpose [cab727d4]",
+                    "weight": .75,  # Apply pose on 75% of the steps
+                    "pixel_perfect": True
+                }
+            )
+        elif module == "depth":
+            script_payload.append(
+                {
+                    "enabled": True,
+                    "input_image": base64Image,
+                    "module": "depth_midas",
+                    "model": "control_v11f1p_sd15_depth [cfd03158]",
+                    "weight": 0.5, # Apply depth only 50% of the steps
+                    "guidance": 1.0,
+                    "guidance_start": 0.0,
+                    "guidance_end": 0.5,
+                    "pixel_perfect": True
+                }
+            )
+        elif module == "softEdge":
+            script_payload.append(
+                {
+                    "enabled": True,
+                    "input_image": base64Image,
+                    "module": "softedge_pidinet",
+                    "model": "control_v11p_sd15_softedge [a8575a2a]",
+                    "weight": .5,  # Apply pose on 75% of the steps
+                    "pixel_perfect": True
+                }
+            )
+
+        # Remove pre-processor if not needed
+        if not preProcess:
+            script_payload[len(script_payload) -1]["module"] = None
+        
+        
+        
+        # = {
+        #     "controlnet": {
+        #         "args": [
+        #             {
+        #                 "enabled": True,
+        #                 "input_image": base64Image,
+        #                 "module": "openpose",
+        #                 "model": "control_v11p_sd15_openpose [cab727d4]",
+        #                 "weight": .75,  # Apply pose on 75% of the steps
+        #                 "pixel_perfect": True
+        #             },
+        #             {
+        #                 "enabled": True,
+        #                 "input_image": base64Image,
+        #                 "module": "depth_midas",
+        #                 "model": "control_v11f1p_sd15_depth [cfd03158]",
+        #                 "weight": 0.5, # Apply depth only 50% of the steps
+        #                 "guidance": 1.0,
+        #                 "guidance_start": 0.0,
+        #                 "guidance_end": 0.5,
+        #                 "pixel_perfect": True
+        #             }
+        #         ]
+        #     }
+        # }  
 
     # Inpaint at 2X the image's size and 0.5 denoise
     async def superHirez(self, b64=None):
@@ -686,7 +1046,7 @@ class SynBotPrompt:
             "mask": maskB64, 
             "denoising_strength": 0.5, 
             "image_cfg_scale": 7, 
-            "mask_blur": 10, 
+            "mask_blur": 4, 
             "inpaint_full_res": True,                   #choices=["Whole picture", "Only masked"]
             "inpaint_full_res_padding": 32, 
             "inpainting_mask_invert": 0,                #choices=['Inpaint masked', 'Inpaint not masked']
@@ -696,14 +1056,14 @@ class SynBotPrompt:
             "seed": self.seedToUse, 
             "cfg_scale": 7, 
             "width": width * 1.5, "height": height * 1.5, 
-            "prompt": "masterpiece, best_quality, extremely detailed, intricate, high_details, sharp_focus , best_anatomy, hires, (colorful), beautiful, 4k, magical, adorable, (extraordinary:0.6), (((simple_background))), (((white_background))), multiple_views, reference_sheet, " + self.fixedPrompt, 
-            "negative_prompt": "paintings, sketches, fingers, (worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality, ((monochrome)), ((grayscale)), skin spots, acnes, skin blemishes, age spot, (outdoor:1.6), backlight,(ugly:1.331), (duplicate:1.331), (morbid:1.21), (mutilated:1.21), (tranny:1.331), mutated hands, (poorly drawn hands:1.5), blurry, (bad anatomy:1.21), (bad proportions:1.331), extra limbs, (disfigured:1.331), lowers, bad hands, missing fingers, extra digit, " + self.fixedNegative, 
+            "prompt": self.fixedPrompt, 
+            "negative_prompt": self.fixedNegative, 
             "sampler_index": "DPM++ 2M Karras"
         }
         
-        file = open("output.txt", "w")
-        json.dump(payload, file)
-        file.close
+        # file = open("output.txt", "w")
+        # json.dump(payload, file)
+        # file.close
 
         # # Add controlNet OpenPose
         # payload["alwayson_scripts"] = {
@@ -788,3 +1148,52 @@ class SynBotPrompt:
                 else:
                     await self.ctx.send(f"{self.ctx.author.mention} -> API server returned an unknown error. Try again?")
                     print(response)
+
+    def get_xyz_script_args(self, expressions):
+
+        print(expressions)
+
+        # Customize x/y/z plot script parameters here
+        # for AxisType index (8 for now) look at SD/scripts/xyz_grid.py
+        # XAxis
+        XAxisType = 7 # S/R Prompt
+        XAxisValues = expressions
+        XAxisDropdown = ""
+
+        # YAxis
+        YAxisType = 0 # Nothing
+        YAxisValues = ""
+        YAxisDropdown = ""
+
+        # ZAxis
+        ZAxisType = 0 # Nothing
+        ZAxisValues = ""
+        ZAxisDropdown = ""
+
+        # The Rest
+        drawLegend = "false"
+        include_lone_images = "true"
+        include_sub_grids = "false"
+        no_fixed_seeds = "false"
+        vary_seeds_x = "false"
+        vary_seeds_y = "false"
+        vary_seeds_z = "false"
+        margin_size = 0
+        csv_mode = "false"
+
+
+
+        # def run(self, p, x_type, x_values, x_values_dropdown, y_type, y_values, y_values_dropdown, z_type, z_values, z_values_dropdown, draw_legend, include_lone_images, include_sub_grids, no_fixed_seeds, vary_seeds_x, vary_seeds_y, vary_seeds_z, margin_size, csv_mode):
+
+        return [
+            XAxisType, XAxisValues, XAxisDropdown,
+            YAxisType, YAxisValues, YAxisDropdown, 
+            ZAxisType, ZAxisValues, ZAxisDropdown, 
+            drawLegend, 
+            include_lone_images,
+            include_sub_grids, 
+            no_fixed_seeds, 
+            vary_seeds_x,vary_seeds_y,vary_seeds_z,
+            margin_size,
+            csv_mode
+        ]

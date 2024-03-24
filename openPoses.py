@@ -1,4 +1,5 @@
 import os
+import cv2
 import base64
 from PIL import Image
 from io import BytesIO
@@ -33,3 +34,8 @@ def getImageFormBase64(b64):
     img = Image.open(im_file)   # img is now PIL Image object
     return img
 
+def getBase64StringFromOpenCV(openCVImage):
+    _, im_arr = cv2.imencode('.jpg', openCVImage)  # im_arr: image in Numpy one-dim array format.
+    im_bytes = im_arr.tobytes()
+    im_b64 = base64.b64encode(im_bytes)
+    return im_b64.decode("utf-8")
