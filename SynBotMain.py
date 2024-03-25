@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from LORA_Helper import LORA_List
 from discord.ext import tasks, commands
 from charactersList import charactersLORA
+from ssd_anime_face_detect import ssd_anime_face_detect_from_cv2_Image
 from openPoses import getPose, getLewdPose, getImageAtPath, getBase64FromImage, getImageFormBase64, getBase64StringFromOpenCV
 
 load_dotenv()
@@ -367,10 +368,10 @@ class SynBotPrompt:
             #     self.isValid = False
             #     return
 
-            if not self.hasControlNet() and attachmentCount < 2:
-                self.errorMsg = f"{self.ctx.author.mention} Missing **Mask Image** attachment in EXPRESSIONS command, OR include the **controlNet** parameter"
-                self.isValid = False
-                return
+            # if not self.hasControlNet() and attachmentCount < 2:
+            #     self.errorMsg = f"{self.ctx.author.mention} Missing **Mask Image** attachment in EXPRESSIONS command, OR include the **controlNet** parameter"
+            #     self.isValid = False
+            #     return
             
             if "expressions" in jsonData:
                 self.expressions = jsonData["expressions"]
@@ -744,100 +745,93 @@ class SynBotPrompt:
 
         #########################       EXPRESSIONS      #####################################
         elif self.type == "expressions":
-
+            
             # Attachment logic:
                 # if hasControlNet() -> Use the second image in controlnet
                 # else use second image as mask
-                # if no 2nd image, use as a normal IMG2IMG
+                # if no 2nd image, or hasControlNet() --> use faceDetect to create mask
             
-            ########################### EXTRACT FACES TO MAKE RENDERING FASTER
             # Base 64 to PIL Image
             pilImage = getImageFormBase64(self.userBaseImage)
-            
-            if not self.hasControlNet(): # controlnetImage used as mask
-                pilImage_mask = getImageFormBase64(self.userControlNetImage)
+            if pilImage == None:
+                print("EMPTY PIL IMAGE in face-detect")
 
-            # PIL Image to OpenCV
-            open_cv_image = np.array(pilImage, dtype=np.uint8)
-            open_cv_image = cv2.cvtColor(open_cv_image, cv2.COLOR_RGB2BGR)            
+            masked_image = None
+            cropped_mask_image_b64 = None # the final mask image
 
-            if not self.hasControlNet(): # controlnetImage used as mask
-                open_cv_image_mask = np.array(pilImage_mask, dtype=np.uint8)
-                open_cv_image_mask = cv2.cvtColor(open_cv_image_mask, cv2.COLOR_RGB2BGR)            
+            # mask image is the second image being passed
+            isSecondImageMask = True if not self.hasControlNet() and len(self.ctx.message.attachments) > 1 else False
 
-            # From: https://github.com/XavierJiezou/anime-face-detection?tab=readme-ov-file#example
-            img_gray = cv2.cvtColor(open_cv_image, cv2.COLOR_BGR2GRAY)
-            img_gray = cv2.equalizeHist(img_gray) 
-            face_cascade = cv2.CascadeClassifier("lbp_anime_face_detect.xml")
-            faces = face_cascade.detectMultiScale(img_gray)
-            minX = pilImage.width
-            minY = pilImage.height
-            maxX = 0
-            maxY = 0
-            for x, y, w, h in faces:
-                minX = min(minX, x)
-                minY = min(minY, y)
-                maxX = max(maxX, x + w)
-                maxY = max(maxY, y + h)
-                # open_cv_image = cv2.rectangle(open_cv_image,  (x, y), (x+w, y+h), (255, 0, 255), 5)
+            if isSecondImageMask:
+                cropped_mask_image_b64 = self.userControlNetImage
 
-            # Trying extract the face location, to shrink the rendered image and thus making the generation shorter
-            # open_cv_image = cv2.rectangle(open_cv_image, (minX, minY), (maxX, maxY), (0, 0, 255), 5)
-            # cv2.imwrite("test_rects.png", open_cv_image) 
-
-            margin = 18 #number of pixel around the detected area to include in cropped image
-            # cropped_cv_image = open_cv_image[minY:maxY, minX:maxX].copy()
-            # cropped_cv_image_mask = open_cv_image_mask[minY:maxY, minX:maxX].copy()
-            # cv2.imwrite("test.png", cropped_cv_image) 
-            # cv2.imwrite("test2.png", cropped_cv_image_mask) 
-            # cropped_base_image = getBase64StringFromOpenCV(cropped_cv_image)
-            # cropped_mask_image = getBase64StringFromOpenCV(cropped_cv_image_mask)
-
-            if len(faces) == 0:
-                self.errorMsg = f"{self.ctx.author.mention} No face detected in Image. Will have to process the whole image, results may take a long time and are probably going to be bad :man_shrugging:"
-                await self.ctx.send(self.errorMsg)
-                
-
-
-            scaleFactor = 4.0
-            if len(faces) > 0:
-                cropped_pil_image = pilImage.crop((minX, minY, maxX, maxY))
-                if not self.hasControlNet(): # controlnetImage used as mask
-                    cropped_pil_image_mask = pilImage_mask.crop((minX, minY, maxX, maxY))
+            # we use face detect to create mask
             else:
-                scaleFactor = 2.0 # because we're going to process the whole image
-                cropped_pil_image = pilImage
-                if not self.hasControlNet(): # controlnetImage used as mask
-                    cropped_pil_image_mask = pilImage_mask
+                masked_image = Image.new('RGB', pilImage.size,  (1, 1, 1))
 
-            cropped_pil_image.save("cropped.png")
+                ########################### EXTRACT FACES
 
-            cropped_base_image = getBase64FromImage(cropped_pil_image)
-            if not self.hasControlNet(): # controlnetImage used as mask
-                cropped_mask_image = getBase64FromImage(cropped_pil_image_mask)
+                # PIL to OpenCV
+                open_cv_image = np.array(pilImage, dtype=np.uint8)
+                open_cv_image = cv2.cvtColor(open_cv_image, cv2.COLOR_RGB2BGR)
+                open_cv_image_mask = np.array(masked_image, dtype=np.uint8)
+                open_cv_image_mask = cv2.cvtColor(open_cv_image_mask, cv2.COLOR_RGB2BGR)
+
+                # From https://github.com/XavierJiezou/anime-face-detection?tab=readme-ov-file#repository-3
+                model_path = "./model/ssd_anime_face_detect.pth"
+                faces = ssd_anime_face_detect_from_cv2_Image(open_cv_image, model_path)
+
+                # Loop faces and paint rectangle in white
+                if len(faces) == 0:
+                    self.errorMsg = f"{self.ctx.author.mention} No face detected in Image. Will have to process the whole image, results may take a long time and are probably going to be bad :man_shrugging:"
+                    await self.ctx.send(self.errorMsg)
+
+                else:
+                    for k in range(faces.shape[0]):
+                        xmin = int(faces[k, 0])
+                        ymin = int(faces[k, 1])
+                        xmax = int(faces[k, 2])
+                        ymax = int(faces[k, 3])
+                        ymin += 0.2 * (ymax - ymin + 1)
+                        score = faces[k, 4]
+                        # Fill the rectangle in white
+                        cv2.rectangle(open_cv_image_mask, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (255, 255, 255), -1)
+                    
+                    # Convert back to base64
+                    open_cv_image_mask = cv2.cvtColor(open_cv_image_mask, cv2.COLOR_BGR2RGB)
+                    masked_image = Image.fromarray(open_cv_image_mask) 
+                    masked_image.save("mask.png")
+                    cropped_mask_image_b64 = getBase64FromImage(masked_image)
+
+                ########################### END EXTRACT FACES
+
+
             ########################### END EXTRACT FACES TO MAKE RENDERING FASTER
 
             # Where do we send the request?
             apiPath = "/sdapi/v1/img2img"
-            width, height = cropped_pil_image.size
+            width, height = pilImage.size
 
-            if not self.hasControlNet():
+            if cropped_mask_image_b64 != None:
+                print ("EXPRESSION --> INPAINT")
                 # INPAINT payload
                 payload = {
-                    "init_images": [ cropped_base_image ], 
-                    "mask": cropped_mask_image, 
+                    "init_images": [ self.userBaseImage ], 
+                    "mask": cropped_mask_image_b64, 
                     "denoising_strength": self.denoise, 
                     "image_cfg_scale": 7, 
                     "mask_blur": 4, 
-                    "inpaint_full_res_padding": 8, 
-                    "inpaint_full_res": 1,                   # 0 - 'Whole picture' , 1 - 'Only masked' ||| True, # for 'Whole image' (The API doc has a mistake - the value must be a int - not a boolean)
+                    "inpaint_full_res_padding": 32, 
+                    "inpaint_full_res": 0,                      # 0 - 'Whole picture' , 1 - 'Only masked' ||| True, # for 'Whole image' (The API doc has a mistake - the value must be a int - not a boolean)
                     "inpainting_mask_invert": 0,                #choices=['Inpaint masked', 'Inpaint not masked']
+                    "initial_noise_multiplier": 1,              # I think this one is for inpaint models only. Leave it at 1 just in case. a simple noise multiplier but since we are setting the denoising_strength it seems unnecessary - recommended to leave it at 1. Once again the API doc is stupid with the 0 default that f*cks up results.
+                    "inpainting_fill": 1,                       # Value is int. 0 - 'fill', 1 - 'original', 2 - 'latent noise' and 3 - 'latent nothing'.
                     "sampler_name": "DPM++ 2M Karras", 
                     "batch_size": 1, # no batch for you!
                     "steps": 35,
                     "seed": self.seedToUse, 
                     "cfg_scale": 7, 
-                    "width": width * scaleFactor, "height": height * scaleFactor, 
+                    "width": width, "height": height, 
                     "prompt": self.fixedPrompt, 
                     "negative_prompt": self.fixedNegative, 
                     "sampler_index": "DPM++ 2M Karras",
@@ -847,9 +841,10 @@ class SynBotPrompt:
                 }
 
             else:
-                # IMG2IMG payload
+                print ("EXPRESSION --> IMG2IMG")
+                # IMG2IMG payload || Should arrive here only if 2nd image is not mask and we couldn't detect a face
                 payload = {
-                    "init_images": [ cropped_base_image ], 
+                    "init_images": [ self.userBaseImage ], 
                     "denoising_strength": self.denoise, 
                     "image_cfg_scale": 7, 
                     "sampler_name": "DPM++ 2M Karras", 
@@ -866,12 +861,15 @@ class SynBotPrompt:
                     "script_args": self.get_xyz_script_args(self.expressions),
                 }
 
-                if self.enable_depth:
-                    self.addControlNetToPayload(payload, cropped_base_image, "depth")
-                if self.enable_openPose:
-                    self.addControlNetToPayload(payload, cropped_base_image, "openPose")
-                if self.enable_softEdge:
-                    self.addControlNetToPayload(payload, cropped_base_image, "softEdge")
+            # Either case, add openPose if needed
+            print(f"{self.enable_depth}, {self.enable_openPose}, {self.enable_softEdge}")
+
+            if self.enable_depth:
+                self.addControlNetToPayload(payload, self.userBaseImage if isSecondImageMask else self.userControlNetImage, "depth")
+            if self.enable_openPose:
+                self.addControlNetToPayload(payload, self.userBaseImage if isSecondImageMask else self.userControlNetImage, "openPose")
+            if self.enable_softEdge:
+                self.addControlNetToPayload(payload, self.userBaseImage if isSecondImageMask else self.userControlNetImage, "softEdge")
 
 
         ######################### END PAYLOAD BUILDING #####################################
@@ -958,6 +956,7 @@ class SynBotPrompt:
         script_payload = payload["alwayson_scripts"]["controlnet"]["args"]
 
         if module == "openPose":
+            print("Adding openPose to payload")
             script_payload.append(
                 {
                     "enabled": True,
@@ -969,6 +968,7 @@ class SynBotPrompt:
                 }
             )
         elif module == "depth":
+            print("Adding depth to payload")
             script_payload.append(
                 {
                     "enabled": True,
@@ -983,6 +983,7 @@ class SynBotPrompt:
                 }
             )
         elif module == "softEdge":
+            print("Adding softEdge to payload")
             script_payload.append(
                 {
                     "enabled": True,

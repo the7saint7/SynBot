@@ -1,19 +1,11 @@
 import os
-# import io
 import sys
-# import json
-# import base64
-# import aiohttp
-# import asyncio
 import discord
-# import requests
-# from PIL import Image
 from dotenv import load_dotenv
 from discord.ext import commands
 from LORA_Helper import LORA_List
 from charactersList import charactersLORA
 from SynBotMain import SynBotManager, SynBotPrompt
-# from openPoses import getPose, getLewdPose, getImageAtPath
 
 # syn2: The plan is to run 2 bots, because I have 2 StableDiffusion server, this would help with the workload
 # Users will be able to select which bot to work with
