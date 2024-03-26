@@ -540,8 +540,17 @@ class SynBotPrompt:
             
             # This one is special, we will call the async request right away and return when done
 
+            baseImage = getImageFormBase64(self.userBaseImage)
+            # Double check uploaded image dimension, resize if needed
+            if baseImage.width > 1280 or baseImage.height > 1280:
+                print("Uploaded image is too large, resizing...")
+                baseImage.thumbnail((1280,1280), Image.Resampling.LANCZOS)
+                print(f"Resized: {baseImage.width}, {baseImage.height}")
+            
+            baseImage64 = getBase64FromImage(baseImage)
+
             print("Removing background...")
-            png = await self.removeBackground(self.userBaseImage, self.URL, self.ctx)
+            png = await self.removeBackground(baseImage64, self.URL, self.ctx)
             print("Background removed.")
 
             # Image is in base64, convert it to a discord.File
