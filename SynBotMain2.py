@@ -70,7 +70,6 @@ class SynBotPrompt:
         self.enable_openPose = False
         self.enable_depth = False
         self.enable_softEdge = False
-        self.enable_reference = False
         
         # Common uploadedImages
         self.userBaseImage = None
@@ -120,7 +119,6 @@ class SynBotPrompt:
             if "depth" in controlnet : self.enable_depth = True
             if "openPose" in controlnet : self.enable_openPose = True
             if "softEdge" in controlnet : self.enable_softEdge = True
-            if "reference" in controlnet : self.enable_reference = True
         
 
         ###### TXT2IMG specific init
@@ -468,8 +466,6 @@ class SynBotPrompt:
             
             # Back to base64
             self.userControlNetImage = getBase64FromImage(ctrlNetImage)
-
-
         imageCount = 1 if self.userBaseImage != None else 0
         imageCount += 1 if self.userControlNetImage != None else 0
         print(f"Attachments loaded in memory. ({imageCount})")
@@ -477,7 +473,7 @@ class SynBotPrompt:
 
     # Utility function to check all parameters at once
     def hasControlNet(self):
-        return self.enable_depth or self.enable_openPose or self.enable_softEdge or self.enable_reference
+        return self.enable_depth or self.enable_openPose or self.enable_softEdge
 
 
     # Process an image URL and return a base64 encoded string
@@ -559,17 +555,29 @@ class SynBotPrompt:
             # Add/Enable openPose from selected pose or lewdPose image
             if poseImage != None:
                 self.addControlNetToPayload(payload, poseImage, "openPose")
+                # payload["alwayson_scripts"] = {
+                #     "controlnet": {
+                #         "args": [
+                #             {
+                #                 "input_image": poseImage,
+                #                 "model": "control_v11p_sd15_openpose [cab727d4]",
+                #                 "weight": 1,
+                #                 # "width": 512,
+                #                 # "height": 768,
+                #                 "pixel_perfect": True
+                #             }
+                #         ]
+                #     }
+                # }
             
             # Add ControlNet if no pose/lewdPose and everything is in order
-            if self.hasControlNet() and self.userControlNetImage != None:
+            elif self.hasControlNet() and self.userControlNetImage != None:
                 if self.enable_depth:
                     self.addControlNetToPayload(payload, self.userControlNetImage, "depth")
                 if self.enable_openPose:
                     self.addControlNetToPayload(payload, self.userControlNetImage, "openPose")
                 if self.enable_softEdge:
                     self.addControlNetToPayload(payload, self.userControlNetImage, "softEdge")
-                if self.enable_reference:
-                    self.addControlNetToPayload(payload, self.userControlNetImage, "reference")
 
         #########################         IMG2IMG        #####################################
         elif self.type == "img2img":
@@ -596,6 +604,7 @@ class SynBotPrompt:
 
             # Add ControlNet if requested in the parameters
             if self.hasControlNet():
+
                 # Use controlNet image if one was passed, if not, baseImage
                 imageToUse = self.userControlNetImage if self.userControlNetImage != None else self.userBaseImage
 
@@ -605,8 +614,6 @@ class SynBotPrompt:
                     self.addControlNetToPayload(payload, imageToUse, "openPose")
                 if self.enable_softEdge:
                     self.addControlNetToPayload(payload, imageToUse, "softEdge")
-                if self.enable_reference:
-                    self.addControlNetToPayload(payload, imageToUse, "reference")
             
         #########################        INPAINT       #####################################
         elif self.type == "inpaint":
@@ -652,8 +659,6 @@ class SynBotPrompt:
                     self.addControlNetToPayload(payload, self.userBaseImage, "openPose")
                 if self.enable_softEdge:
                     self.addControlNetToPayload(payload, self.userBaseImage, "softEdge")
-                if self.enable_reference:
-                    self.addControlNetToPayload(payload, self.userBaseImage, "reference")
 
 
         #########################        OUTFITS       #####################################
@@ -744,8 +749,6 @@ class SynBotPrompt:
                 self.addControlNetToPayload(payload, self.userControlNetImage, "openPose", preProcess=False)
             if self.enable_softEdge:
                 self.addControlNetToPayload(payload, self.userControlNetImage, "softEdge", preProcess=False)
-            if self.enable_reference:
-                self.addControlNetToPayload(payload, self.userControlNetImage, "reference")
 
         #########################       EXPRESSIONS      #####################################
         elif self.type == "expressions":
@@ -865,15 +868,15 @@ class SynBotPrompt:
                     "script_args": self.get_xyz_script_args(self.expressions),
                 }
 
-            if self.hasControlNet():
-                if self.enable_depth:
-                    self.addControlNetToPayload(payload, self.userBaseImage if isSecondImageMask else self.userControlNetImage, "depth")
-                if self.enable_openPose:
-                    self.addControlNetToPayload(payload, self.userBaseImage if isSecondImageMask else self.userControlNetImage, "openPose")
-                if self.enable_softEdge:
-                    self.addControlNetToPayload(payload, self.userBaseImage if isSecondImageMask else self.userControlNetImage, "softEdge")
-                if self.enable_reference:
-                    self.addControlNetToPayload(payload, self.userBaseImage if isSecondImageMask else self.userControlNetImage, "reference")
+            # Either case, add openPose if needed
+            print(f"{self.enable_depth}, {self.enable_openPose}, {self.enable_softEdge}")
+
+            if self.enable_depth:
+                self.addControlNetToPayload(payload, self.userBaseImage if isSecondImageMask else self.userControlNetImage, "depth")
+            if self.enable_openPose:
+                self.addControlNetToPayload(payload, self.userBaseImage if isSecondImageMask else self.userControlNetImage, "openPose")
+            if self.enable_softEdge:
+                self.addControlNetToPayload(payload, self.userBaseImage if isSecondImageMask else self.userControlNetImage, "softEdge")
 
 
         ######################### END PAYLOAD BUILDING #####################################
@@ -924,35 +927,108 @@ class SynBotPrompt:
                             discordFiles.append(discordFile)
 
 
-                    print(f"showing {len(discordFiles)} files")
-                    # get available tags
-                    tags = self.outputChanel.available_tags
-                    # Prepare the tag to give to the new thread
-                    forumTag = None
-                    for tag in tags:
-                        if tag.name.lower() == self.type.lower():
-                            forumTag = tag
-                            break
+                    # print(f"showing {len(discordFiles)} files")
+                    # # get available tags
+                    # tags = self.outputChanel.available_tags
+                    # # Prepare the tag to give to the new thread
+                    # forumTag = None
+                    # for tag in tags:
+                    #     if tag.name.lower() == self.type.lower():
+                    #         forumTag = tag
+                    #         break
 
                     
                     # if the type is "birth" and "hirez", do a super-hirez on the image
                     if self.type == "birth" and self.hirez:
                         await self.superHirez(r['images'][0])
-                        return
-
-
-
-                    await self.outputChanel.create_thread(
-                        name=f"{self.type.upper()} by {self.ctx.message.author.display_name}", 
-                        content=f"{self.ctx.author.mention} generated this image with prompt:\n```{self.ctx.message.content}``` and seed: {responseSeedUsed}", 
-                        files=discordFiles,
-                        applied_tags=[forumTag]
-                    )
-                
+                    else:
+                        await self.sendBotResponse(discordFiles, responseSeedUsed, payload)
+                    
                 else:
                     await self.ctx.send(f"{self.ctx.author.mention} -> API server returned an unknown error. Try again?")
                     print(response)
         
+    async def getJOSNFromMessage(self):
+        # Create the jsonData from the original prompt
+        message = str(self.ctx.message.content)
+        prefixes = ["!Syn-txt2img", "!Syn-img2img", "!Syn-inpaint", "!Syn-outfits", "!Syn2-txt2img", "!Syn2-img2img", "!Syn2-inpaint", "!Syn2-outfits", "!Syn-birth", "!Syn2-birth", "!Syn-expressions", "!Syn2-expressions"]
+        for prefix in prefixes:
+            message = message.removeprefix(prefix)
+
+        # Try to load the JSON data, return if its invalid
+        try:
+            return json.loads(message.strip())
+        except ValueError as e:
+            self.errorMsg = f"{self.ctx.author.mention} invalid json: {e}"
+            print(f"invalid json: {e} -> {message}")
+            self.isValid = False
+            return None
+    
+    async def sendBotResponse(self, discordFiles, responseSeedUsed, payload):
+
+        # Create the jsonData from the original prompt
+        jsonData = self.getJOSNFromMessage()
+
+
+        
+        # Create a list of messages, 1 for each image in discordFiles
+        messages = []
+        for dFile in discordFiles:
+            seed = responseSeedUsed + discordFiles.index(dFile)
+            jsonDataCopy = jsonData.copy()
+            jsonDataCopy["seed"] = seed
+
+            # Recreate prompt from jsonData
+            command = (self.ctx.message.content).split(" ")[0] + " {\"hirez\":\"true\""
+            command = command + ", \"seed\":" + seed + ", "
+            if self.removeBG : command = command + ", \"removeBG\":\"true\""
+            if self.hasControlNet() : command = command + ", \"controlNet\":[" + jsonDataCopy["controlNet"] + "]"
+            if "denoise" in jsonData : command = command + ", \"denoise\":" + str(jsonDataCopy["denoise"])
+            if "batch" in jsonData : command = command + ", \"batch\":" + str(jsonDataCopy["batch"])
+            if "expressions" in jsonData : command = command + ", \"expressions\":[" + jsonDataCopy["expressions"] + "]"
+            if "birthPoses" in jsonData : command = command + ", \"birthPoses\":[" + jsonDataCopy["birthPoses"] + "]"
+            if "character" in jsonData : command = command + ", \"character\":\"" + jsonDataCopy["character"] + "\""
+            if "outfit" in jsonData : command = command + ", \"outfit\":\"" + jsonDataCopy["outfit"] + "\""
+            if "pose" in jsonData : command = command + ", \"pose\":\"" + jsonDataCopy["pose"] + "\""
+            if "lewdPose" in jsonData : command = command + ", \"lewdPose\":\"" + jsonDataCopy["lewdPose"] + "\""
+            if "format" in jsonData : command = command + ", \"format\":\"" + str(jsonDataCopy["format"]) + "\""
+            if "prompt" in jsonData : command = command + ", \"prompt\":\"" + str(jsonDataCopy["prompt"]) + "\""
+            if "negative" in jsonData : command = command + ", \"negative\":\"" + str(jsonDataCopy["negative"]) + "\""
+
+            message = {
+                "command": command,
+                "file": dFile,
+                "seed": seed
+            }
+            messages.append(message)
+
+
+
+        # Add TAGS to thread
+        # get available tags
+        tags = self.outputChanel.available_tags
+        # Prepare the tag to give to the new thread
+        forumTag = None
+        for tag in tags:
+            if tag.name.lower() == self.type.lower():
+                forumTag = tag
+                break
+
+        # Create the thread so we can use it to create the subsequent messages
+        # Use the first message in the list for its content
+        command1 = messages[0]["command"]
+        thread = await self.outputChanel.create_thread(
+            name=f"{self.type.upper()} by {self.ctx.message.author.display_name}", 
+            content=f"{self.ctx.author.mention} generated this image with prompt:\n```{command1}``` and seed: {responseSeedUsed}", 
+            files=discordFiles,
+            applied_tags=[forumTag]
+        )
+
+        for message in messages:
+            if messages.index(message) == 0:
+                continue
+            await thread.send(message["command"], discordFile=message["file"])
+
 
     def printPayload(self, payload, toFile=False, shorten=True) :
         payloadCopy = payload.copy()
@@ -1022,21 +1098,6 @@ class SynBotPrompt:
                     "model": "control_v11p_sd15_softedge [a8575a2a]",
                     "weight": .5,  # Apply pose on 75% of the steps
                     "pixel_perfect": True
-                }
-            )
-        elif module == "reference":
-            print("Adding reference to payload")
-            script_payload.append(
-                {
-                    "enabled": True,
-                    "input_image": base64Image,
-                    "module": "reference_only",
-                    "model": "none",
-                    # "weight": 1.5,
-                    # "guidance": 1.0,
-                    # "guidance_start": 0.0,
-                    # "guidance_end": 1.0,
-                    # "resize_mode": 1   # Crop and Resize
                 }
             )
 

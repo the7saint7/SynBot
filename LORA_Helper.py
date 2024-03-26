@@ -24,5 +24,10 @@ LORA_List = {
     "WHITEBG": "(((simple_background))), (((white_background))), ((no shadows)), reference_sheet, posing",
     "QUALITY": "masterpiece, best_quality, extremely detailed, intricate, high_details, sharp_focus , best_anatomy, hires, (colorful), beautiful, 4k, magical, adorable, (extraordinary:0.6), <lora:thickline_fp16:.2>, <lora:neg4all_bdsqlsz_V3.5:1.0>, negative_hand-neg, ",
     "NEGATIVE": "fewer digits, extra body parts, censored, collage, logo, border, badhandv4, paintings, sketches, fingers, (worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality, ((monochrome)), ((grayscale)), skin spots, acnes, skin blemishes, age spot, (outdoor:1.6), backlight,(ugly:1.331), (duplicate:1.331), (morbid:1.21), (mutilated:1.21), (tranny:1.331), mutated hands, (poorly drawn hands:1.5), blurry, (bad anatomy:1.21), (bad proportions:1.331), extra limbs, (disfigured:1.331), lowers, bad hands, missing fingers, extra digit, ",
-    "CANDYSOFT": "<lora:Candysprite style:.2>, <lora:Koku_V1.0a:.2>, flat"
+    "CANDYSOFT": "<lora:Candysprite style:.2>, <lora:Koku_V1.0a:.2>, flat",
+    "BIRTH": "(((white_background))), (((simple_background))), (((multiple_views))), (((reference_sheet)))",
+    "ADD-DETAILS": "<lora:more_details:.2>",
+    "ADD-MORE-DETAILS": "<lora:more_details:.4>",
+    "EVEN-MORE-DETAILS": "<lora:more_details:.6>",
+    "TOO-MUCH-DETAILS": "<lora:more_details:.8>"
 }
