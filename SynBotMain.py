@@ -48,7 +48,7 @@ class SynBotPrompt:
         self.outputChanel = outputChanel
 
         # Default parameters
-        self.type = type # txt2img, img2img, inpaint, outfits 
+        self.type = type # txt2img, img2img, inpaint, outfits, ect
         self.isValid = True
         self.hirez = False
         self.hirezValue = 1.0
@@ -92,26 +92,29 @@ class SynBotPrompt:
         message = str(self.ctx.message.content)
 
         # Remove all possible prefixes
-        prefixes = ["!Syn-txt2img", "!Syn-img2img", "!Syn-inpaint", "!Syn-outfits", "!Syn2-txt2img", "!Syn2-img2img", "!Syn2-inpaint", "!Syn2-outfits", "!Syn-birth", "!Syn2-birth", "!Syn-expressions", "!Syn2-expressions"]
+        prefixes = ["!Syn-txt2img", "!Syn-img2img", "!Syn-inpaint", "!Syn-outfits", "!Syn2-txt2img", "!Syn2-img2img", "!Syn2-inpaint", "!Syn2-outfits", "!Syn-birth", "!Syn2-birth", "!Syn-expressions", "!Syn2-expressions", "!Syn-removeBG", "!Syn2-removeBG"]
         for prefix in prefixes:
             message = message.removeprefix(prefix)
 
         # Try to load the JSON data, return if its invalid
-        try:
-            jsonData = json.loads(message.strip())
-        except ValueError as e:
-            self.errorMsg = f"{self.ctx.author.mention} invalid json: {e}"
-            print(f"invalid json: {e} -> {message}")
-            self.isValid = False
-            return
-
-        # Required parameters
-        if "prompt" in jsonData:
-            self.userPrompt = jsonData["prompt"]
+        if self.type == "removeBG": # removeBG does not contain any extra parameter
+            jsonData = []
         else:
-            self.errorMsg = f"{self.ctx.author.mention} Missing **'prompt'** parameter"
-            self.isValid = False
-            return
+            try:
+                jsonData = json.loads(message.strip())
+            except ValueError as e:
+                self.errorMsg = f"{self.ctx.author.mention} invalid json: {e}"
+                print(f"invalid json: {e} -> {message}")
+                self.isValid = False
+                return
+
+            # Required parameters
+            if "prompt" in jsonData and self.type != "removeBG": #removeBG does not have a prompt
+                self.userPrompt = jsonData["prompt"]
+            else:
+                self.errorMsg = f"{self.ctx.author.mention} Missing **'prompt'** parameter"
+                self.isValid = False
+                return
 
         # ControlNet parameters
         # Some renders will require to read the passed image if controlnet is enabled
@@ -123,8 +126,24 @@ class SynBotPrompt:
             if "reference" in controlnet : self.enable_reference = True
         
 
+        ###### removeBG specific init
+        if self.type == "removeBG":
+            attachmentCount = len(self.ctx.message.attachments)
+            if attachmentCount == 0:
+                self.errorMsg = f"{self.ctx.author.mention} Missing a Image attachment in **removeBG** command"
+                self.isValid = False
+                return
+            
+            ###################### START lOADING USER SUBMITTED IMAGE
+            self.loadUserSubmittedImages()
+            if self.userBaseImage == None:
+                self.errorMsg = "Could not read sent image. Request stopped."
+                self.isValid = False
+                return
+            ###################### END LOADING USER SUBMITTED IMAGE
+            
         ###### TXT2IMG specific init
-        if self.type == "txt2img":
+        elif self.type == "txt2img":
             if "format" in jsonData:
                 self.formatStr = jsonData["format"]
             else:
@@ -516,8 +535,40 @@ class SynBotPrompt:
     async def generateImage(self):
         
         ######################### START PAYLOAD BUILDING #####################################
+        #########################        removeBG         #####################################
+        if self.type == "removeBG":
+            
+            # This one is special, we will call the async request right away and return when done
+
+            print("Removing background...")
+            png = await self.removeBackground(self.userBaseImage, self.URL, self.ctx)
+            print("Background removed.")
+
+            # Image is in base64, convert it to a discord.File
+            bytes = io.BytesIO(base64.b64decode(png.split(",",1)[0]))
+            bytes.seek(0)
+            discordFile = discord.File(bytes, filename="removedBG-" + str(self.ctx.message.author) + ".png")
+
+            # get available tags
+            tags = self.outputChanel.available_tags
+            # Prepare the tag to give to the new thread
+            forumTag = None
+            for tag in tags:
+                if tag.name.lower() == self.type.lower():
+                    forumTag = tag
+                    break
+
+            thread = await self.outputChanel.create_thread(
+                name=f"Removed Background by {self.ctx.message.author.display_name}", 
+                content=f"{self.ctx.author.mention} removed a background from the image here: {self.ctx.message.jump_url}", 
+                file=discordFile,
+                applied_tags=[forumTag]
+            )
+
+            return
+        
         #########################        TXT2IMG         #####################################
-        if self.type == "txt2img":
+        elif self.type == "txt2img":
             
             # Where do we send the request?
             apiPath = "/sdapi/v1/txt2img"

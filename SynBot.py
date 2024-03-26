@@ -129,6 +129,10 @@ async def birth(ctx):
 async def expressions(ctx):
     await executePrompt(ctx, type="expressions")
 
+@bot.command()
+async def removeBG(ctx):
+    await executePrompt(ctx, type="removeBG")
+
 async def executePrompt(ctx, type=None):
     # Select proper channel to handle requests
     input_channel_id = int(os.getenv("DEV_CHANNEL")) if env_dev else int(os.getenv("INPUT_CHANEL"))
