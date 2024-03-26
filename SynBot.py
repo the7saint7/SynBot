@@ -45,6 +45,22 @@ async def on_ready():
     channel = bot.get_channel(channel_id)
     await channel.send(f"**Syn-Bot{aiNumInstruction} AI** is online and ready to generate some images. Type **!Syn{aiNumInstruction}-helpMe** for instructions!")
 
+
+# @client.event
+# async def on_reaction_add(reaction, user):
+#     # Double check its in the bot channel 
+#     output_channel_id = int(os.getenv("DEV_FORUM")) if env_dev else int(os.getenv("FORUM_CHANNEL"))
+#     if reaction.message.channel.id == output_channel_id:
+#         if reaction.emoji == '🔃':
+
+# @bot.event
+# async def on_thread_create(thread):
+#     # Auto-add recycle reaction on new thread posted by Bot
+#     # Double check its in the bot channel 
+#     output_channel_id = int(os.getenv("DEV_FORUM")) if env_dev else int(os.getenv("FORUM_CHANNEL"))
+#     if thread.parent.id == output_channel_id:
+#         await thread.starter_message.message.add_reaction('🔃')
+
 # Each "-2IMG" should be calling this at the end of their "parse and prepare data" phase
 async def addToQueue(ctx, newPrompt: SynBotPrompt):
 
@@ -82,6 +98,10 @@ async def addToQueue(ctx, newPrompt: SynBotPrompt):
 
     # Add the prompt to the queue, where it will be executed on next queue loop
     await bot.queue.put(newPrompt)
+# TXT2IMG
+@bot.command()
+async def helpMe(ctx):
+    await ctx.send(f"{ctx.author.mention} Read instructions here: https://discord.com/channels/709517836061507585/1218769658774032426")
 
 # TXT2IMG
 @bot.command()

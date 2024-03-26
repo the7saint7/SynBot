@@ -878,7 +878,7 @@ class SynBotPrompt:
 
         ######################### END PAYLOAD BUILDING #####################################
         
-        self.printPayload(payload, toFile=True, shorten=False)
+        # self.printPayload(payload, toFile=True, shorten=False)
 
         # Sending API call request
         print(f"Sending request to {self.URL}{apiPath} ...")
@@ -942,17 +942,54 @@ class SynBotPrompt:
 
 
 
-                    await self.outputChanel.create_thread(
-                        name=f"{self.type.upper()} by {self.ctx.message.author.display_name}", 
-                        content=f"{self.ctx.author.mention} generated this image with prompt:\n```{self.ctx.message.content}``` and seed: {responseSeedUsed}", 
+                    thread = await self.outputChanel.create_thread(
+                        name=f"{self.getTitle()} by {self.ctx.message.author.display_name}", 
+                        content=f"{self.ctx.author.mention} generated this image with prompt: {self.ctx.message.jump_url}\n```{self.getPromptWithSeed(responseSeedUsed)}```", 
                         files=discordFiles,
                         applied_tags=[forumTag]
                     )
+
+                    # # Add reaction for Bot to detect
+                    # await thread.message.add_reaction('🔃')
                 
                 else:
                     await self.ctx.send(f"{self.ctx.author.mention} -> API server returned an unknown error. Try again?")
                     print(response)
         
+
+    def getPromptWithSeed(self, seed):
+        prompt = str(self.ctx.message.content)
+        if not "seed" in prompt:
+            print("Seed added to prompt")
+            prompt = prompt.replace(" {", " {\"seed\":" + str(seed) + ", ")
+        else:
+            print("Seed already in prompt")
+        
+        return prompt
+
+    def getTitle(self):
+
+        exceptions = ["QUALITY", "NEGATIVE"]
+        title = ""
+
+
+        for key in charactersLORA.keys():
+            if key in exceptions:
+                continue 
+            if key in self.userPrompt:
+                title = title + " " + key
+        for key in LORA_List.keys():
+            if key in exceptions:
+                continue 
+            if key in self.userPrompt:
+                title = title + " " + key
+
+        # Default, type uppercase
+        if len(title) == 0:
+            title = self.type.upper()
+
+        print("Ttiel: " + self.userPrompt)
+        return title.strip()
 
     def printPayload(self, payload, toFile=False, shorten=True) :
         payloadCopy = payload.copy()
@@ -1196,8 +1233,8 @@ class SynBotPrompt:
 
                     # Post on Discord Forum
                     await self.outputChanel.create_thread(
-                        name=f"{self.type.upper()} by {self.ctx.message.author.display_name}", 
-                        content=f"{self.ctx.author.mention} generated this image with prompt:\n```{self.ctx.message.content}``` and seed: {responseSeedUsed}", 
+                        name=f"{self.getTitle()} by {self.ctx.message.author.display_name}", 
+                        content=f"{self.ctx.author.mention} generated this image with prompt:\n```{self.getPromptWithSeed(responseSeedUsed)}```", 
                         files=discordFiles,
                         applied_tags=[forumTag]
                     )
