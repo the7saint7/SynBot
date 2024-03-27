@@ -738,6 +738,18 @@ class SynBotPrompt:
                 "sampler_index": "DPM++ 2M Karras"
             }
 
+            # Add ControlNet if requested in the parameters
+            if self.hasControlNet():
+                if self.enable_depth:
+                    self.addControlNetToPayload(payload, self.userBaseImage, "depth")
+                if self.enable_openPose:
+                    self.addControlNetToPayload(payload, self.userBaseImage, "openPose")
+                if self.enable_softEdge:
+                    self.addControlNetToPayload(payload, self.userBaseImage, "softEdge")
+                if self.enable_reference:
+                    self.addControlNetToPayload(payload, self.userBaseImage, "reference")
+
+
         #########################        TXT2IMG         #####################################
         elif self.type == "txt2img":
             
