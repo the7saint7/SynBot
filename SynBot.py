@@ -132,6 +132,12 @@ async def expressions(ctx):
 @bot.command()
 async def removeBG(ctx):
     await executePrompt(ctx, type="removeBG")
+@bot.command()
+async def superHiRez(ctx):
+    await executePrompt(ctx, type="superHiRez")
+@bot.command()
+async def mask(ctx):
+    await executePrompt(ctx, type="mask")
 
 async def executePrompt(ctx, type=None):
     # Select proper channel to handle requests

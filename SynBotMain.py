@@ -88,16 +88,20 @@ class SynBotPrompt:
         self.expressions = []
         self.includeBlush = False
 
+        # superHiRez
+        self.customMaskBase64 = None
+
         # # The message that was sent
         message = str(self.ctx.message.content)
 
         # Remove all possible prefixes
-        prefixes = ["!Syn-txt2img", "!Syn-img2img", "!Syn-inpaint", "!Syn-outfits", "!Syn2-txt2img", "!Syn2-img2img", "!Syn2-inpaint", "!Syn2-outfits", "!Syn-birth", "!Syn2-birth", "!Syn-expressions", "!Syn2-expressions", "!Syn-removeBG", "!Syn2-removeBG"]
+        prefixes = ["!Syn-txt2img", "!Syn-img2img", "!Syn-inpaint", "!Syn-outfits", "!Syn2-txt2img", "!Syn2-img2img", "!Syn2-inpaint", "!Syn2-outfits", "!Syn-birth", "!Syn2-birth", "!Syn-expressions", "!Syn2-expressions", "!Syn-removeBG", "!Syn2-removeBG", "!Syn-superHiRez", "!Syn2-superHiRez", "!Syn-mask", "!Syn2-mask"]
         for prefix in prefixes:
             message = message.removeprefix(prefix)
 
         # Try to load the JSON data, return if its invalid
-        if self.type == "removeBG": # removeBG does not contain any extra parameter
+        if len(message) == 0 or not message.find("{"): # removeBG does not contain any extra parameter
+            print("No json data found in message, defaulting to empty jsonData")
             jsonData = []
         else:
             try:
@@ -141,6 +145,46 @@ class SynBotPrompt:
                 self.isValid = False
                 return
             ###################### END LOADING USER SUBMITTED IMAGE
+
+        ###### mask specific init
+        elif self.type == "mask":
+            attachmentCount = len(self.ctx.message.attachments)
+            if attachmentCount == 0:
+                self.errorMsg = f"{self.ctx.author.mention} Missing a Image attachment in **superHiRez** command"
+                self.isValid = False
+                return
+            
+            ###################### START lOADING USER SUBMITTED IMAGE
+            self.loadUserSubmittedImages()
+            if self.userBaseImage == None:
+                self.errorMsg = "Could not read sent image. Request stopped."
+                self.isValid = False
+                return
+            ###################### END LOADING USER SUBMITTED IMAGE
+
+        ###### superHiRez specific init
+        elif self.type == "superHiRez":
+            attachmentCount = len(self.ctx.message.attachments)
+            if attachmentCount == 0:
+                self.errorMsg = f"{self.ctx.author.mention} Missing a Image attachment in **superHiRez** command"
+                self.isValid = False
+                return
+            
+            ###################### START lOADING USER SUBMITTED IMAGE
+            self.loadUserSubmittedImages()
+            if self.userBaseImage == None:
+                self.errorMsg = "Could not read sent image. Request stopped."
+                self.isValid = False
+                return
+            ###################### END LOADING USER SUBMITTED IMAGE
+
+            # denoise is optional, no returning an error
+            if "denoise" in jsonData:
+                self.denoise = jsonData["denoise"]
+            else:
+                self.denoise = .50
+                print(f"denoise parameter defaulting to 0.5")
+
             
         ###### TXT2IMG specific init
         elif self.type == "txt2img":
@@ -515,6 +559,36 @@ class SynBotPrompt:
             print(f"Error in encode_discord_image: {e}")
             return None
 
+    def has_transparency(self, img):
+        if img.info.get("transparency", None) is not None:
+            return True
+        if img.mode == "P":
+            transparent = img.info.get("transparency", -1)
+            for _, index in img.getcolors():
+                if index == transparent:
+                    return True
+        elif img.mode == "RGBA":
+            extrema = img.getextrema()
+            if extrema[3][0] < 255:
+                return True
+
+        return False
+    
+    def convertTransparentImageToMask(self, transparentImage):
+        rgba = transparentImage.convert("RGBA")
+        datas = rgba.getdata() 
+
+        newData = [] 
+        for item in datas: 
+            if item[0] == 0 and item[1] == 0 and item[2] == 0:  # finding black colour by its RGB value 
+                # storing a transparent value when we find a black colour 
+                newData.append((1, 1, 1, 255)) 
+            else: 
+                newData.append((255, 255, 255, 255)) 
+
+        rgba.putdata(newData) 
+        return rgba
+
     async def removeBackground(self, discordFile, URL, ctx):
 
         # for discordFile in discordFiles:
@@ -535,7 +609,7 @@ class SynBotPrompt:
     async def generateImage(self):
         
         ######################### START PAYLOAD BUILDING #####################################
-        #########################        removeBG         #####################################
+        #########################        removeBG           #####################################
         if self.type == "removeBG":
             
             # This one is special, we will call the async request right away and return when done
@@ -575,7 +649,89 @@ class SynBotPrompt:
             )
 
             return
-        
+
+        #########################           MASK            #####################################
+        elif self.type == "mask":
+
+            # base64 to PIL Image
+            baseImage = getImageFormBase64(self.userBaseImage)
+            # create a mask image of the same size but the mask should only cover the transparent pixels
+            baseImageWithTransparency = baseImage if self.has_transparency(baseImage) else getImageFormBase64(await self.removeBackground(self.userBaseImage, self.URL, self.ctx))
+            maskedImage = self.convertTransparentImageToMask(baseImageWithTransparency)
+
+            # maskedImage = Image.new(mode="RGB", size=(baseImage.width, baseImage.height), color=(255,255,255))
+            maskedImageB64 = getBase64FromImage(maskedImage)
+
+            # No need to call any APY, send response right away
+            discordFiles = []
+            # Original
+            bytes = io.BytesIO(base64.b64decode(self.userBaseImage))
+            bytes.seek(0)
+            discordFile = discord.File(bytes, filename="original.png")
+            discordFiles.append(discordFile)
+            # Mask
+            bytes = io.BytesIO(base64.b64decode(maskedImageB64))
+            bytes.seek(0)
+            discordFile = discord.File(bytes, filename="mask.png")
+            discordFiles.append(discordFile)
+
+            # Dont create a forum thread, just reply in the same message
+            await self.ctx.reply(f"Here is the masked image, {self.ctx.author.display_name}", files=discordFiles, mention_author=True)
+
+            # We're done
+            return
+
+
+        #########################        SUPERHIREZ         #####################################
+        elif self.type == "superHiRez":
+
+            # Where do we send the request?
+            apiPath = "/sdapi/v1/img2img"
+
+            baseImage = getImageFormBase64(self.userBaseImage)
+
+            # Double check uploaded image dimension, resize if needed
+            if baseImage.width > 1280 or baseImage.height > 1280:
+                print("Uploaded image is too large, resizing...")
+                baseImage.thumbnail((1280,1280), Image.Resampling.LANCZOS)
+                print(f"Resized: {baseImage.width}, {baseImage.height}")
+            baseImage64 = getBase64FromImage(baseImage)
+
+            # This is how rescaled the inpainting will be.
+            width = baseImage.width * 2.0
+            height = baseImage.height * 2.0
+
+            # create a mask image of the same size but the mask should only cover the transparent pixels
+            baseImageWithTransparency = baseImage if self.has_transparency(baseImage) else getImageFormBase64(await self.removeBackground(baseImage64, self.URL, self.ctx))
+            maskedImage = self.convertTransparentImageToMask(baseImageWithTransparency)
+
+            # maskedImage = Image.new(mode="RGB", size=(baseImage.width, baseImage.height), color=(255,255,255))
+            maskedImageB64 = getBase64FromImage(maskedImage)
+            self.customMaskBase64 = maskedImageB64 # Saved to we can include it in the response in Discord
+
+            payload = {
+                "init_images": [ baseImage64 ], 
+                "mask": maskedImageB64,          # not really a controlnet, but the mask image
+                "denoising_strength": self.denoise, 
+                "image_cfg_scale": 7, 
+                "mask_blur": 16, 
+                "inpaint_full_res_padding": 32, 
+                "inpaint_full_res": 1,                      # 0 - 'Whole picture' , 1 - 'Only masked' ||| True, # for 'Whole image' (The API doc has a mistake - the value must be a int - not a boolean)
+                "inpainting_mask_invert": 0,                #choices=['Inpaint masked', 'Inpaint not masked']
+                "initial_noise_multiplier": 1,              # I think this one is for inpaint models only. Leave it at 1 just in case. a simple noise multiplier but since we are setting the denoising_strength it seems unnecessary - recommended to leave it at 1. Once again the API doc is stupid with the 0 default that f*cks up results.
+                "inpainting_fill": 1,                       # Value is int. 0 - 'fill', 1 - 'original', 2 - 'latent noise' and 3 - 'latent nothing'.
+                "resize_mode": 1,                           # Crop and Resize
+                "sampler_name": "DPM++ 2M Karras", 
+                "batch_size": 1, # No batch for you! 
+                "steps": 50,
+                "seed": self.seedToUse, 
+                "cfg_scale": 7, 
+                "width": width, "height": height, 
+                "prompt": self.fixedPrompt, 
+                "negative_prompt": self.fixedNegative, 
+                "sampler_index": "DPM++ 2M Karras"
+            }
+
         #########################        TXT2IMG         #####################################
         elif self.type == "txt2img":
             
@@ -980,9 +1136,22 @@ class SynBotPrompt:
                             # Image is in base64, convert it to a discord.File
                             bytes = io.BytesIO(base64.b64decode(i.split(",",1)[0]))
                             bytes.seek(0)
-                            discordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}.png")
+                            discordFile = discord.File(bytes, filename="" + str(responseSeedUsed) + "-" + str(self.ctx.message.author) + ".png")
                             discordFiles.append(discordFile)
 
+                    # superHiRez, include the original image and the custom mask
+                    if self.type == "superHiRez":
+                        # Original
+                        bytes = io.BytesIO(base64.b64decode(self.userBaseImage))
+                        bytes.seek(0)
+                        discordFile = discord.File(bytes, filename="original.png")
+                        discordFiles.append(discordFile)
+                        # Mask
+                        bytes = io.BytesIO(base64.b64decode(self.customMaskBase64))
+                        bytes.seek(0)
+                        discordFile = discord.File(bytes, filename="mask.png")
+                        discordFiles.append(discordFile)
+                        
 
                     print(f"showing {len(discordFiles)} files")
                     # get available tags
