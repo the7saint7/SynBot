@@ -792,16 +792,16 @@ class SynBotPrompt:
 
             # Add/Enable openPose from selected pose or lewdPose image
             if poseImage != None:
-                self.addControlNetToPayload(payload, poseImage, "openPose")
+                self.addControlNetToPayload(payload, poseImage, "openPose", preProcess=False)
             
             # Add ControlNet if no pose/lewdPose and everything is in order
-            if self.hasControlNet() and self.userControlNetImage != None:
+            elif self.hasControlNet() and self.userControlNetImage != None:
                 if self.enable_depth:
-                    self.addControlNetToPayload(payload, self.userControlNetImage, "depth")
+                    self.addControlNetToPayload(payload, self.userControlNetImage, "depth", preProcess=False)
                 if self.enable_openPose:
-                    self.addControlNetToPayload(payload, self.userControlNetImage, "openPose")
+                    self.addControlNetToPayload(payload, self.userControlNetImage, "openPose", preProcess=False)
                 if self.enable_softEdge:
-                    self.addControlNetToPayload(payload, self.userControlNetImage, "softEdge")
+                    self.addControlNetToPayload(payload, self.userControlNetImage, "softEdge", preProcess=False)
                 if self.enable_reference:
                     self.addControlNetToPayload(payload, self.userControlNetImage, "reference")
 
@@ -1038,7 +1038,7 @@ class SynBotPrompt:
                     # Convert back to base64
                     open_cv_image_mask = cv2.cvtColor(open_cv_image_mask, cv2.COLOR_BGR2RGB)
                     masked_image = Image.fromarray(open_cv_image_mask) 
-                    masked_image.save("mask.png")
+                    # masked_image.save("mask.png")
                     cropped_mask_image_b64 = getBase64FromImage(masked_image)
 
                 ########################### END EXTRACT FACES
@@ -1363,7 +1363,7 @@ class SynBotPrompt:
         # Only use the first image in discordFiles
         b64Image = b64.split(",",1)[0]
         image = getImageFormBase64(b64Image)
-        image.save("output.png")
+        # image.save("output.png")
         # # Write the stuff
         # with open("output.png", "wb") as f:
         #     f.write(bytes.read())                        
