@@ -90,6 +90,7 @@ class SynBotPrompt:
 
         # superHiRez
         self.customMaskBase64 = None
+        self.scale = 2.0 # Default inpaint scale factor
 
         # # The message that was sent
         message = str(self.ctx.message.content)
@@ -177,6 +178,11 @@ class SynBotPrompt:
                 self.isValid = False
                 return
             ###################### END LOADING USER SUBMITTED IMAGE
+
+            self.scale = jsonData["scale"] if "scale" in jsonData else 2.0 # Default 2.0
+            if self.scale > 3.0 : self.scale = 3.0
+            if self.scale < 1.2 : self.scale = 1.2
+
 
             # denoise is optional, no returning an error
             if "denoise" in jsonData:
@@ -698,8 +704,8 @@ class SynBotPrompt:
             baseImage64 = getBase64FromImage(baseImage)
 
             # This is how rescaled the inpainting will be.
-            width = baseImage.width * 2.0
-            height = baseImage.height * 2.0
+            width = baseImage.width * self.scale
+            height = baseImage.height * self.scale
 
             # create a mask image of the same size but the mask should only cover the transparent pixels
             baseImageWithTransparency = baseImage if self.has_transparency(baseImage) else getImageFormBase64(await self.removeBackground(baseImage64, self.URL, self.ctx))
