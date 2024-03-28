@@ -29,5 +29,7 @@ LORA_List = {
     "ADD-DETAILS": "<lora:more_details:.2>",
     "ADD-MORE-DETAILS": "<lora:more_details:.4>",
     "EVEN-MORE-DETAILS": "<lora:more_details:.6>",
-    "TOO-MUCH-DETAILS": "<lora:more_details:.8>"
+    "TOO-MUCH-DETAILS": "<lora:more_details:.8>",
+    "HARPY1": "<lora:harpy_cpt_v01:1> , harpycpt, harpy, winged arms, bird legs, talons",
+    "HARPY2": "<lora:harpy:1> , harpy, monster_girl, wings, feathers, talons"
 }

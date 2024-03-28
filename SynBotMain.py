@@ -282,6 +282,9 @@ class SynBotPrompt:
                 return
             ###################### END LOADING USER SUBMITTED BASE AND MASK IMAGE
 
+            self.scale = jsonData["scale"] if "scale" in jsonData else 1.0 # Default 1.0
+            if self.scale > 3.0 : self.scale = 3.0
+            if self.scale <= 0 : self.scale = 1.0
 
         ###### END INPAINT specific init
 
@@ -854,6 +857,12 @@ class SynBotPrompt:
             if self.hirez:
                 width = 856
                 height = 856
+            
+            # If scale is present, use the baseImage real's size but scaled up or down
+            if self.scale != 1.0:
+                image = getImageFormBase64(self.userBaseImage)
+                width = image.width * self.scale
+                height = image.height * self.scale
 
             payload = {
                 "init_images": [ self.userBaseImage ], 
