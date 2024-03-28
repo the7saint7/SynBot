@@ -1,4 +1,5 @@
 import os
+import re
 import io
 import cv2
 import json
@@ -108,10 +109,14 @@ class SynBotPrompt:
             try:
                 jsonData = json.loads(message.strip())
             except ValueError as e:
-                self.errorMsg = f"{self.ctx.author.mention} invalid json: {e}"
-                print(f"invalid json: {e} -> {message}")
-                self.isValid = False
-                return
+                fixedMessage = self.fixInput(message.strip())
+                try:
+                    jsonData = json.loads(fixedMessage)
+                except ValueError as f:
+                    self.errorMsg = f"{self.ctx.author.mention} invalid json: {f}"
+                    print(f"invalid json: {f} -> {message}")
+                    self.isValid = False
+                    return
 
             # Required parameters
             if "prompt" in jsonData and self.type != "removeBG": #removeBG does not have a prompt
@@ -508,6 +513,8 @@ class SynBotPrompt:
                 print("Found: " + key + " in negative")
                 self.fixedNegative = self.fixedNegative.replace(key, LORA_List[key])
         ############### END Replace prompt tags
+                
+        print(vars(self))
 
 
     # Utility function to load user images
@@ -1547,3 +1554,15 @@ class SynBotPrompt:
             margin_size,
             csv_mode
         ]
+    
+    # input bad jason string, tries to fix by replacing keys with string keys
+    def fixInput(self, message):
+        
+        keys = ["format:", "batch:", "hirez:", "prompt:", "negative:", "controlNet:", "pose:", "lewdPose:", "birthPose:", "scale:", "seed:", "removeBG:", "denoise:", "character:", "outfit:", "expressions"]
+        fixed = message
+        for key in keys:
+            if key in fixed:
+                fixed = fixed.replace(key, "\""+ key.replace(":", "") + "\":")
+
+
+        return fixed
