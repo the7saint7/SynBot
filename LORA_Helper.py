@@ -31,5 +31,7 @@ LORA_List = {
     "EVEN-MORE-DETAILS": "<lora:more_details:.6>",
     "TOO-MUCH-DETAILS": "<lora:more_details:.8>",
     "HARPY1": "<lora:harpy_cpt_v01:1> , harpycpt, harpy, winged arms, bird legs, talons",
-    "HARPY2": "<lora:harpy:1> , harpy, monster_girl, wings, feathers, talons"
+    "HARPY2": "<lora:harpy:1> , harpy, monster_girl, wings, feathers, talons",
+    "WEAPON-HOLDING": "<lora:holdingweapon001:.75>",
+    "WEAPON-BLADES": " <lora:KatanaOneHandV5:1>, basic grip"
 }
