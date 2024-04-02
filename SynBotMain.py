@@ -514,7 +514,7 @@ class SynBotPrompt:
                 self.fixedNegative = self.fixedNegative.replace(key, LORA_List[key])
         ############### END Replace prompt tags
                 
-        print(vars(self))
+        # print(vars(self))
 
 
     # Utility function to load user images
@@ -1251,7 +1251,7 @@ class SynBotPrompt:
         if len(title) == 0:
             title = self.type.upper()
 
-        print("Ttiel: " + self.userPrompt)
+        print("Title: " + self.userPrompt)
         return title.strip()
 
     def printPayload(self, payload, toFile=False, shorten=True) :
