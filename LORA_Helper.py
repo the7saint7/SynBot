@@ -34,5 +34,5 @@ LORA_List = {
     "HARPY2": "<lora:harpy:1> , harpy, monster_girl, wings, feathers, talons",
     "WEAPON-HOLDING": "<lora:holdingweapon001:.75>",
     "WEAPON-BLADES": " <lora:KatanaOneHandV5:1>, basic grip",
-    "TKCHEER": " <lora:stCheerUniform:.75>, stCheerUniform cheerleader, red_shirt, bare_shoulders,  cleavage, collar_bone, midriff, navel, skirt, (((white_skirt))), pleated skirt, (((pom pom \(cheerleading\)))), yellow pom pom \(cheerleading\)"
+    "TKCHEER": " <lora:stCheerUniform-000009:.75>, stCheerUniform cheerleader, red_shirt, bare_shoulders,  cleavage, collar_bone, midriff, navel, skirt, (((white_skirt))), pleated skirt, (((pom pom \(cheerleading\)))), yellow pom pom \(cheerleading\)"
 }
