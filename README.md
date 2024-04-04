@@ -1,6 +1,15 @@
 # Requirements
 - A Stable Diffusion Automatic 1111 running with the '--api' parameter, to enable calling the API
+    - Install "ControlNet" extension
+        - Download and install ControlNet models:
+            - [OpenPose](https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11p_sd15_openpose.pth?download=true)
+            - [Depth](https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11f1p_sd15_depth.pth?download=true_)
+            - [SoftEdge](https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11p_sd15_softedge.pth?download=true)
+    - Install "rembg" extension
+    - Install "4x-UltraSharp" upscaler [Find it here](https://openmodeldb.info/models/4x-UltraSharp) put the file in your SD folder (SD/models/ESRGAN/4x-UltraSharp.pth)
 - A Discord server where you are Admin
+
+
 
 # Enabling your own Bot and setting up your Discord server
 You can find many tutorials on the web on how to setup your own Discord Bot (I game my Bot admin-role, you may want to be more careful)
