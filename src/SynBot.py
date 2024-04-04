@@ -149,7 +149,7 @@ async def executePrompt(ctx, type=None):
         print ("Request made in wrong channel")
         return
 
-    # Fetch the channel where the image will be sent to. This might be move, if I ever find a way to thread the API calls.
+    # Fetch the channel where the image will be sent to. This might be moved, if I ever find a way to thread the API calls.
     output_channel_id = int(os.getenv("DEV_FORUM")) if env_dev else int(os.getenv("FORUM_CHANNEL"))
     outputChannel = bot.get_channel(output_channel_id)
 
