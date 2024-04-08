@@ -12,7 +12,7 @@
 
 
 # Enabling your own Bot and setting up your Discord server
-You can find many tutorials on the web on how to setup your own Discord Bot (I game my Bot admin-role, you may want to be more careful)
+You can find many tutorials on the web on how to setup your own Discord Bot (I gave my Bot admin-role, you may want to be more careful)
 Heres my recommended link: [Create a Discord Bot](https://discordpy.readthedocs.io/en/stable/discord.html)
 
 - Put the generated TOKEN in the .env file in src/
