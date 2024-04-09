@@ -48,6 +48,10 @@ class SynBotPrompt:
         self.ctx = context
         self.outputChanel = outputChanel
 
+        # Available format string
+        self.availableFormatString = ["landscape", "portrait", "panno"]
+        self.availableFormatSize = ["640x360", "360x640", "920x360"]
+
         # Default parameters
         self.type = type # txt2img, img2img, inpaint, outfits, ect
         self.isValid = True
@@ -58,7 +62,7 @@ class SynBotPrompt:
         self.poseNumber = None
         self.lewdPoseNumber = None
         self.removeBG = False
-        self.format = "640x360" 
+        self.formatIndex = 1 # See availableFormatString
         self.userNegative = "NEGATIVE" # What the user sent originaly
         self.fixedNegative = "" # after replacing the tags with the real prompts
         self.userPrompt = "" # What the user sent originaly
@@ -93,7 +97,13 @@ class SynBotPrompt:
         self.customMaskBase64 = None
         self.scale = 2.0 # Default inpaint scale factor
 
-        # # The message that was sent
+        # sequence
+        self.sequencePoses = [] # A lit of openPose images to use during the sequence
+        self.sequenceLength = 3 # Default value Should have an upper limit
+        self.sequenceStich = True # Should we stitch the sequence in the end and include it in the results?
+        self.sequencePoses = [] # a list of base pose to use for the sequence
+
+        # The message that was sent
         message = str(self.ctx.message.content)
 
         # Remove all possible prefixes
@@ -200,19 +210,19 @@ class SynBotPrompt:
         ###### TXT2IMG specific init
         elif self.type == "txt2img":
             if "format" in jsonData:
-                self.formatStr = jsonData["format"]
+                formatStr = jsonData["format"]
+
+                if not formatStr in self.availableFormatString:
+                    self.errorMsg = f"{self.ctx.author.mention} Non supported format: '{formatStr}'. Supported formats are: {self.availableFormatString}"
+                    print("Non supported format: " + formatStr)
+                    self.isValid = False
+                    return
+
             else:
                 self.errorMsg = f"{self.ctx.author.mention} Missing **'format'** parameter"
                 self.isValid = False
                 return
         
-            if self.formatStr != "landscape" and self.formatStr != "portrait":
-                self.errorMsg = f"{self.ctx.author.mention} Non supported format: '{self.formatStr}'"
-                print("non conform format: " + self.formatStr)
-                self.isValid = False
-                return
-            
-
             # Controlnet double-check
             if self.hasControlNet():
                 attachmentCount = len(self.ctx.message.attachments)
@@ -231,8 +241,8 @@ class SynBotPrompt:
                 ###################### END LOADING USER SUBMITTED IMAGE
 
 
-            
-            self.format = "640x360" if self.formatStr.strip() == "landscape" else "360x640"
+            self.formatIndex = self.availableFormatString.index(formatStr)
+
         ###### END TXT2IMG specific init
 
         ###### IMG2IMG specific init
@@ -763,6 +773,8 @@ class SynBotPrompt:
         #########################        TXT2IMG         #####################################
         elif self.type == "txt2img":
             
+            format = self.availableFormatSize[self.formatIndex]
+
             # Where do we send the request?
             apiPath = "/sdapi/v1/txt2img"
 
@@ -773,8 +785,8 @@ class SynBotPrompt:
                 "batch_size": self.batchCount,
                 "steps": 35,
                 "cfg_scale": 7,
-                "width": int(self.format.split("x")[0]),
-                "height": int(self.format.split("x")[1]),
+                "width": int(format.split("x")[0]),
+                "height": int(format.split("x")[1]),
                 "restore_faces": False,
                 "seed": self.seedToUse
             }
@@ -792,7 +804,7 @@ class SynBotPrompt:
             poseImage = None
             if self.poseNumber != None:
                 # Pick a pose according toe format and "shot"
-                pose_format = "landscape" if int(self.format.split("x")[0]) > int(self.format.split("x")[1]) else "portrait"
+                pose_format = self.availableFormatString[self.formatIndex]
                 pose_shot = "full_body" if "full_body" in self.userPrompt else "cowboy_shot"
                 poseImage = getPose(pose_format, pose_shot, self.poseNumber)
 

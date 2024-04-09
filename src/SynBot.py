@@ -87,7 +87,7 @@ async def addToQueue(ctx, newPrompt: SynBotPrompt):
     newPrompt.URL = getAPIURL()
     synBot = "Syn2-Bot" if syn2 else "Syn-Bot"
     if newPrompt.type == "txt2img":
-        await ctx.send(f"Queuing request from {ctx.message.author.display_name} , in " + newPrompt.format + appendHirez + " format, on " + synBot + ".")
+        await ctx.send(f"Queuing request from {ctx.message.author.display_name} , in " + newPrompt.availableFormatSize[newPrompt.formatIndex] + appendHirez + " format, on " + synBot + ".")
     elif newPrompt.type == "outfits":
         await ctx.send(f"**Creating new outfit** for {newPrompt.outfitsCharacter} on **{synBot}** , requested by {ctx.message.author.display_name}.")
     elif newPrompt.type == "birth":
@@ -138,6 +138,9 @@ async def superHiRez(ctx):
 @bot.command()
 async def mask(ctx):
     await executePrompt(ctx, type="mask")
+@bot.command()
+async def sequence(ctx):
+    await executePrompt(ctx, type="sequence")
 
 async def executePrompt(ctx, type=None):
     # Select proper channel to handle requests
