@@ -240,11 +240,11 @@ class SynBotPrompt:
                     self.isValid = False
                     return
 
-            else:
-                self.errorMsg = f"{self.ctx.author.mention} missing **sequencePoses** parameter"
-                print("missing **sequencePoses** parameter")
-                self.isValid = False
-                return
+            # else:
+            #     self.errorMsg = f"{self.ctx.author.mention} missing **sequencePoses** parameter"
+            #     print("missing **sequencePoses** parameter")
+            #     self.isValid = False
+            #     return
 
             if "sequenceType" in jsonData:
                 self.sequenceType = jsonData["sequenceType"]
@@ -1201,11 +1201,11 @@ class SynBotPrompt:
             for pose in self.sequencePoses:
                 poseImages.append(getSequencePose(pose, asPIL=True))
 
-            # Grow or shrink images
-            if self.sequenceType == "Growth":
-                print("TODO: Growth")
-            elif self.sequenceType == "Shrink":
-                print("TODO: Shrink")
+            # # Grow or shrink images
+            # if self.sequenceType == "Growth":
+            #     print("TODO: Growth")
+            # elif self.sequenceType == "Shrink":
+            #     print("TODO: Shrink")
 
             ################# Fix the starting and ending prompt
             fixedStartPrompt = self.startPrompt
@@ -1249,7 +1249,7 @@ class SynBotPrompt:
             for promptIndex in range(5):
                 prompt = {
                     "prompt": self.getPromptForSequence(fixedStartPrompt2, fixedEndPrompt2, ",".join(commonTags), promptIndex),
-                    "image": poseImages[math.floor(len(poseImages) / 5 * promptIndex)]
+                    "image": None if len(poseImages) == 0 else poseImages[math.floor(len(poseImages) / 5 * promptIndex)]
                 }
                 prompts.append(prompt)
             
@@ -1770,7 +1770,9 @@ class SynBotPrompt:
                 payload["hr_sampler_name"] = "DPM++ 2M Karras"
                 payload["hr_second_pass_steps"] = 20
 
-            self.addControlNetToPayload(payload, getBase64FromImage(prompt["image"]), "openPose", preProcess=False)
+            if prompt["image"] != None:
+                self.addControlNetToPayload(payload, getBase64FromImage(prompt["image"]), "openPose", preProcess=False)
+
             # end Build payload
 
             # Prepare payload
