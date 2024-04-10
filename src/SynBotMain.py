@@ -1234,9 +1234,11 @@ class SynBotPrompt:
 
             fixedStartPrompt2 = fixedStartPrompt
             fixedEndPrompt2 = fixedEndPrompt
+            startTags = [x.strip() for x in fixedStartPrompt.split(',')]
+            endTags = [x.strip() for x in fixedEndPrompt.split(',')]
             commonTags = []
-            for tag in fixedStartPrompt.split(","):
-                if tag in fixedEndPrompt.split(","):
+            for tag in startTags:
+                if tag in endTags:
                     fixedStartPrompt2 = fixedStartPrompt2.replace(tag, "")
                     fixedEndPrompt2 = fixedEndPrompt2.replace(tag, "")
                     if tag.strip() != "":
