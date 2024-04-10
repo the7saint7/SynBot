@@ -132,12 +132,15 @@ async def expressions(ctx):
 @bot.command()
 async def removeBG(ctx):
     await executePrompt(ctx, type="removeBG")
+
 @bot.command()
 async def superHiRez(ctx):
     await executePrompt(ctx, type="superHiRez")
+
 @bot.command()
 async def mask(ctx):
     await executePrompt(ctx, type="mask")
+
 @bot.command()
 async def sequence(ctx):
     await executePrompt(ctx, type="sequence")

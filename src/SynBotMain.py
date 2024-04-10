@@ -2,8 +2,10 @@ import os
 import re
 import io
 import cv2
+import math
 import json
 import base64
+import random
 import aiohttp
 import asyncio
 import discord
@@ -15,7 +17,7 @@ from LORA_Helper import LORA_List
 from discord.ext import tasks, commands
 from charactersList import charactersLORA
 from ssd_anime_face_detect import ssd_anime_face_detect_from_cv2_Image
-from openPoses import getPose, getLewdPose, getImageAtPath, getBase64FromImage, getImageFormBase64, getBase64StringFromOpenCV
+from openPoses import getPose, getLewdPose, getImageAtPath, getBase64FromImage, getImageFormBase64, getBase64StringFromOpenCV, getSequencePose
 
 load_dotenv()
 
@@ -51,6 +53,8 @@ class SynBotPrompt:
         # Available format string
         self.availableFormatString = ["landscape", "portrait", "panno"]
         self.availableFormatSize = ["640x360", "360x640", "920x360"]
+
+        self.availableSequenceTypes = ["Default", "Growth", "Shrink"]
 
         # Default parameters
         self.type = type # txt2img, img2img, inpaint, outfits, ect
@@ -99,15 +103,15 @@ class SynBotPrompt:
 
         # sequence
         self.sequencePoses = [] # A lit of openPose images to use during the sequence
-        self.sequenceLength = 3 # Default value Should have an upper limit
-        self.sequenceStich = True # Should we stitch the sequence in the end and include it in the results?
-        self.sequencePoses = [] # a list of base pose to use for the sequence
+        self.startPrompt = ""
+        self.endPrompt = ""
+        self.sequenceType = "Default"
 
         # The message that was sent
         message = str(self.ctx.message.content)
 
         # Remove all possible prefixes
-        prefixes = ["!Syn-txt2img", "!Syn-img2img", "!Syn-inpaint", "!Syn-outfits", "!Syn2-txt2img", "!Syn2-img2img", "!Syn2-inpaint", "!Syn2-outfits", "!Syn-birth", "!Syn2-birth", "!Syn-expressions", "!Syn2-expressions", "!Syn-removeBG", "!Syn2-removeBG", "!Syn-superHiRez", "!Syn2-superHiRez", "!Syn-mask", "!Syn2-mask"]
+        prefixes = ["!Syn-txt2img", "!Syn-img2img", "!Syn-inpaint", "!Syn-outfits", "!Syn2-txt2img", "!Syn2-img2img", "!Syn2-inpaint", "!Syn2-outfits", "!Syn-birth", "!Syn2-birth", "!Syn-expressions", "!Syn2-expressions", "!Syn-removeBG", "!Syn2-removeBG", "!Syn-superHiRez", "!Syn2-superHiRez", "!Syn-mask", "!Syn2-mask", "!Syn-sequence", "!Syn2-sequence"]
         for prefix in prefixes:
             message = message.removeprefix(prefix)
 
@@ -129,7 +133,9 @@ class SynBotPrompt:
                     return
 
             # Required parameters
-            if "prompt" in jsonData and self.type != "removeBG": #removeBG does not have a prompt
+            if self.type == "removeBG" or self.type == "sequence":
+                self.userPrompt = ""  #some types does not have a prompt
+            elif "prompt" in jsonData:
                 self.userPrompt = jsonData["prompt"]
             else:
                 self.errorMsg = f"{self.ctx.author.mention} Missing **'prompt'** parameter"
@@ -206,7 +212,57 @@ class SynBotPrompt:
                 self.denoise = .50
                 print(f"denoise parameter defaulting to 0.5")
 
+
+        ###### SEQUENCE specific init
+        elif self.type == "sequence":
+
+            if "startPrompt" in jsonData:
+                self.startPrompt = jsonData["startPrompt"]
+            else:
+                self.errorMsg = f"{self.ctx.author.mention} missing **startPrompt** parameter"
+                print("missing **startPrompt** parameter")
+                self.isValid = False
+                return
             
+            if "endPrompt" in jsonData:
+                self.endPrompt = jsonData["endPrompt"]
+            else:
+                self.errorMsg = f"{self.ctx.author.mention} missing **endPrompt** parameter"
+                print("missing **endPrompt** parameter")
+                self.isValid = False
+                return
+            
+            if "sequencePoses" in jsonData:
+                self.sequencePoses = jsonData["sequencePoses"]
+                if len(self.sequencePoses) > 5:
+                    self.errorMsg = f"{self.ctx.author.mention} too many poses in **sequencePoses**. Maximum of 5 poses allowed."
+                    print("too many poses in **sequencePoses**")
+                    self.isValid = False
+                    return
+
+            else:
+                self.errorMsg = f"{self.ctx.author.mention} missing **sequencePoses** parameter"
+                print("missing **sequencePoses** parameter")
+                self.isValid = False
+                return
+
+            if "sequenceType" in jsonData:
+                self.sequenceType = jsonData["sequenceType"]
+                if not self.sequenceType in self.availableSequenceTypes:
+                    self.errorMsg = f"{self.ctx.author.mention} unknown **sequenceType**. Available sequenceTypes: {self.availableSequenceTypes}"
+                    print("unknown **sequenceType**")
+                    self.isValid = False
+                    return
+            
+            # Make sure to remove QUALITY from prompt, as well as some other keywords
+            sequence_helpers = ["white_background", "simple_background", "QUALITY"]
+            for helper in sequence_helpers:
+                if helper in self.startPrompt:
+                    self.startPrompt = self.startPrompt.replace(helper, "")
+                if helper in self.endPrompt:
+                    self.endPrompt = self.endPrompt.replace(helper, "")
+            
+
         ###### TXT2IMG specific init
         elif self.type == "txt2img":
             if "format" in jsonData:
@@ -1137,6 +1193,71 @@ class SynBotPrompt:
                 if self.enable_reference:
                     self.addControlNetToPayload(payload, self.userBaseImage if isSecondImageMask else self.userControlNetImage, "reference")
 
+        #########################       SEQUENCES        #####################################
+        elif self.type == "sequence":
+            
+            # Build a list of all the images in the sequence
+            poseImages = []
+            for pose in self.sequencePoses:
+                poseImages.append(getSequencePose(pose, asPIL=True))
+
+            # Grow or shrink images
+            if self.sequenceType == "Growth":
+                print("TODO: Growth")
+            elif self.sequenceType == "Shrink":
+                print("TODO: Shrink")
+
+            ################# Fix the starting and ending prompt
+            fixedStartPrompt = self.startPrompt
+            fixedEndPrompt = self.endPrompt
+
+            for key in charactersLORA.keys():
+                found = False
+                if key in fixedStartPrompt:
+                    print("Found: " + key)
+                    found = True
+                    fixedStartPrompt = fixedStartPrompt.replace(key, charactersLORA[key])
+                if key in fixedEndPrompt:
+                    if not found:
+                        print("Found: " + key)
+                    fixedEndPrompt = fixedEndPrompt.replace(key, charactersLORA[key])
+
+            # Same for LORA Helpers
+            for key in LORA_List.keys():
+                if key in fixedStartPrompt:
+                    print("Found: " + key + " in prompt")
+                    fixedStartPrompt = fixedStartPrompt.replace(key, LORA_List[key])
+                if key in fixedEndPrompt:
+                    print("Found: " + key + " in negative")
+                    fixedEndPrompt = fixedEndPrompt.replace(key, LORA_List[key])
+            ################# END Fix the starting and ending prompt
+
+            fixedStartPrompt2 = fixedStartPrompt
+            fixedEndPrompt2 = fixedEndPrompt
+            commonTags = []
+            for tag in fixedStartPrompt.split(","):
+                if tag in fixedEndPrompt.split(","):
+                    fixedStartPrompt2 = fixedStartPrompt2.replace(tag, "")
+                    fixedEndPrompt2 = fixedEndPrompt2.replace(tag, "")
+                    if tag.strip() != "":
+                        commonTags.append(tag.strip())
+            
+            print(f"common tags: {commonTags}")
+
+            # We are going to make 5 poses so 5 prompts, but we might have 1 to 5 images. We must split the poses evenly
+            prompts = []
+            for promptIndex in range(5):
+                prompt = {
+                    "prompt": self.getPromptForSequence(fixedStartPrompt2, fixedEndPrompt2, ",".join(commonTags), promptIndex),
+                    "image": poseImages[math.floor(len(poseImages) / 5 * promptIndex)]
+                }
+                prompts.append(prompt)
+            
+            # We need to loop 5 times and call SD in each loop with all the prompt info
+            await self.createSequence(prompts)
+            return
+
+
 
         ######################### END PAYLOAD BUILDING #####################################
         
@@ -1288,7 +1409,7 @@ class SynBotPrompt:
 
     def addControlNetToPayload(self, payload, base64Image, module, preProcess=True):
 
-        print(f"Preparing to add module: {module}...")
+        # print(f"Preparing to add module: {module}...")
         if "alwayson_scripts" not in payload:
             payload["alwayson_scripts"] = {"controlnet": {
                 "args": []
@@ -1570,7 +1691,7 @@ class SynBotPrompt:
     # input bad jason string, tries to fix by replacing keys with string keys
     def fixInput(self, message):
         
-        keys = ["format:", "batch:", "hirez:", "prompt:", "negative:", "controlNet:", "pose:", "lewdPose:", "birthPose:", "scale:", "seed:", "removeBG:", "denoise:", "character:", "outfit:", "expressions"]
+        keys = ["format:", "batch:", "hirez:", "prompt:", "negative:", "controlNet:", "pose:", "lewdPose:", "birthPose:", "scale:", "seed:", "removeBG:", "denoise:", "character:", "outfit:", "expressions:", "sequence:", "startPrompt:", "endPrompt:", "sequencePoses:", "sequenceType:"]
         fixed = message
         for key in keys:
             if key in fixed:
@@ -1578,3 +1699,156 @@ class SynBotPrompt:
 
 
         return fixed
+
+    # For sequences, adjust weights as the prompt progress
+    def getPromptForSequence(self, start, end, common, index):
+
+        startWeights = [1.0, .75, 0.5, 0.25, 0.0]
+        endWeights = [0.0, 0.25, 0.5, 0.75, 1.0]
+
+        # split each prompt into words and add a weight to each word
+        startWords = start.split(",")
+        startFixed = ""
+        startWeight = startWeights[index]
+        for word in startWords:
+            # Ignore LORA
+            if word.strip().startswith("<lora:"):
+                startFixed += word.strip() + ","
+            else:
+                if word.strip() != "":
+                    startFixed += f"({word.strip()}:{startWeight}),"
+
+        endWords = end.split(",")
+        endFixed = ""
+        endWeight = endWeights[index]
+        for word in endWords:
+            # Ignore LORA
+            if word.strip().startswith("<lora:"):
+                endFixed += word.strip() + ","
+            else:
+                if word.strip() != "":
+                    endFixed += f"({word.strip()}:{endWeight}),"
+
+
+        prefix = LORA_List["QUALITY"] + ", (((white_background))), (((simple_background))), "
+
+        return prefix + startFixed + common + endFixed.rstrip(',')
+    
+    async def createSequence(self, prompts):
+        
+        responseImages = []
+
+        # Use the same seed for each images
+        seed = self.seedToUse if self.seedToUse !=-1 else random.randint(0,4294967295)
+        print(f"seed: {seed}")
+
+        for prompt in prompts:
+
+            print(prompt["prompt"])
+
+            # Build payload
+            payload = {
+                "prompt": prompt["prompt"],
+                "negative_prompt": self.fixedNegative,
+                "sampler_name": "DPM++ 2M Karras",
+                "batch_size": self.batchCount,
+                "steps": 35,
+                "cfg_scale": 7,
+                "width": 512,
+                "height": 768,
+                "restore_faces": False,
+                "seed": seed
+            }
+
+            if self.hirez:
+                payload["denoising_strength"] = 0.5
+                payload["enable_hr"] = True
+                payload["hr_upscaler"] = "4x-UltraSharp"
+                #payload["hr_resize_x"] = int(format.split("x")[0]) * HIREZ_SCALE
+                #payload["hr_resize_y"] = int(format.split("x")[1]) * HIREZ_SCALE
+                payload["hr_scale"] = self.hirezValue
+                payload["hr_sampler_name"] = "DPM++ 2M Karras"
+                payload["hr_second_pass_steps"] = 20
+
+            self.addControlNetToPayload(payload, getBase64FromImage(prompt["image"]), "openPose", preProcess=False)
+            # end Build payload
+
+            # Prepare payload
+            apiPath = "/sdapi/v1/txt2img"
+
+            # Sending API call request
+            print(f"Sending request to {self.URL}{apiPath} ...")
+
+            # response = requests.post(url=f'{self.URL}{apiPath}', json=payload)
+            # print(response)
+            # print("Request returned: " + str(response.status_code))
+            async with aiohttp.ClientSession(loop=self.ctx.bot.loop) as session:
+                async with session.post(url=f'{self.URL}{apiPath}', json=payload)as response:
+                    print("Request returned: " + str(response.status))
+                    if response.status == 200:
+                        r = await response.json()
+                        # Extract the seed that was used to generate the image
+                        info = r["info"]
+                        infoJson = json.loads(info)
+                        responseSeedUsed = infoJson["seed"]
+
+                        # looping response to get actual image
+                        responseImages.append(r['images'][0])
+
+                        print("Sequence image: " + str(len(responseImages)))
+            
+        print("Sequence completed")
+
+        # Turn all those images into discordFile and send them
+        discordFiles = []
+        for base64Image in responseImages:
+            # Image is in base64, convert it to a discord.File
+            bytes = io.BytesIO(base64.b64decode(base64Image.split(",",1)[0]))
+            bytes.seek(0)
+            discordFile = discord.File(bytes, filename="{seed}-{ctx.message.author}.png")
+            discordFiles.append(discordFile)
+
+        # stich all the images into a single wide image and insert it as the first image
+        pilImages = []
+        for base64Imag in responseImages:
+            pilImages.append(getImageFormBase64(base64Imag))
+        # Concatenate the images
+        widths, heights = zip(*(i.size for i in pilImages))
+
+        total_width = sum(widths)
+        max_height = max(heights)
+
+        new_im = Image.new('RGB', (total_width, max_height))
+
+        x_offset = 0
+        for im in pilImages:
+            new_im.paste(im, (x_offset,0))
+            x_offset += im.size[0]
+        
+        # Convert stitched image to discordFile
+        base64StitchedImage = getBase64FromImage(new_im)
+        bytes = io.BytesIO(base64.b64decode(base64StitchedImage))
+        bytes.seek(0)
+        discordFile = discord.File(bytes, filename="stitched.png")
+        discordFiles.insert(0, discordFile)
+
+        # get available tags
+        tags = self.outputChanel.available_tags
+
+        # Prepare the tag to give to the new thread
+        forumTag = None
+        for tag in tags:
+            if tag.name.lower() == self.type.lower():
+                forumTag = tag
+                break
+
+        # Post on Discord Forum
+        await self.outputChanel.create_thread(
+            name=f"{self.getTitle()} by {self.ctx.message.author.display_name}", 
+            content=f"{self.ctx.author.mention} generated this image with prompt:\n```{self.getPromptWithSeed(responseSeedUsed)}```", 
+            files=discordFiles,
+            applied_tags=[forumTag]
+        )
+
+
+        

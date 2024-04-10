@@ -4,19 +4,26 @@ import base64
 from PIL import Image
 from io import BytesIO
 
-def getPose(format, shot, number):
+def getPose(format, shot, number, asPIL=False):
     path = f"./poses/{format}_{shot}/{number}.png"
-    return getImageAtPath(path)
+    return getImageAtPath(path, asPIL)
 
-def getLewdPose(number):
+def getLewdPose(number, asPIL=False):
     path = f"./lewdPoses/{number}.png"
-    return getImageAtPath(path)
+    return getImageAtPath(path, asPIL)
 
-def getImageAtPath(path):
+def getSequencePose(number, asPIL=False):
+    path = f"./sequences/poses/{number}.png"
+    return getImageAtPath(path, asPIL)
+
+def getImageAtPath(path, asPil=False):
     if os.path.exists(path):
         print(f"Using pose at: {path}")
         image = Image.open(path)
-        return getBase64FromImage(image)
+        if asPil:
+            return image
+        else:
+            return getBase64FromImage(image)
         # binary_fc = open(path, 'rb').read()  # fc aka file_content
         # base64_utf8_str = base64.b64encode(binary_fc).decode('utf-8')
         # dataurl = f'{base64_utf8_str}'
