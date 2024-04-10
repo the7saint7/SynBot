@@ -105,6 +105,7 @@ class SynBotPrompt:
         self.sequencePoses = [] # A lit of openPose images to use during the sequence
         self.startPrompt = ""
         self.endPrompt = ""
+        self.commonPrompt = ""
         self.sequenceType = "Default"
 
         # The message that was sent
@@ -232,6 +233,9 @@ class SynBotPrompt:
                 self.isValid = False
                 return
             
+            if "commonPrompt" in jsonData:
+                self.commonPrompt = jsonData["commonPrompt"]
+            
             if "sequencePoses" in jsonData:
                 self.sequencePoses = jsonData["sequencePoses"]
                 if len(self.sequencePoses) > 5:
@@ -254,15 +258,6 @@ class SynBotPrompt:
                     self.isValid = False
                     return
             
-            # Make sure to remove QUALITY from prompt, as well as some other keywords
-            sequence_helpers = ["white_background", "simple_background", "QUALITY"]
-            for helper in sequence_helpers:
-                if helper in self.startPrompt:
-                    self.startPrompt = self.startPrompt.replace(helper, "")
-                if helper in self.endPrompt:
-                    self.endPrompt = self.endPrompt.replace(helper, "")
-            
-
         ###### TXT2IMG specific init
         elif self.type == "txt2img":
             if "format" in jsonData:
@@ -1210,6 +1205,7 @@ class SynBotPrompt:
             ################# Fix the starting and ending prompt
             fixedStartPrompt = self.startPrompt
             fixedEndPrompt = self.endPrompt
+            fixedCommon = self.commonPrompt
 
             for key in charactersLORA.keys():
                 found = False
@@ -1221,6 +1217,10 @@ class SynBotPrompt:
                     if not found:
                         print("Found: " + key)
                     fixedEndPrompt = fixedEndPrompt.replace(key, charactersLORA[key])
+                if key in fixedCommon:
+                    if not found:
+                        print("Found: " + key)
+                    fixedCommon = fixedCommon.replace(key, charactersLORA[key])
 
             # Same for LORA Helpers
             for key in LORA_List.keys():
@@ -1230,27 +1230,31 @@ class SynBotPrompt:
                 if key in fixedEndPrompt:
                     print("Found: " + key + " in negative")
                     fixedEndPrompt = fixedEndPrompt.replace(key, LORA_List[key])
+                if key in fixedCommon:
+                    print("Found: " + key + " in negative")
+                    fixedCommon = fixedCommon.replace(key, LORA_List[key])
             ################# END Fix the starting and ending prompt
 
-            fixedStartPrompt2 = fixedStartPrompt
-            fixedEndPrompt2 = fixedEndPrompt
-            startTags = [x.strip() for x in fixedStartPrompt.split(',')]
-            endTags = [x.strip() for x in fixedEndPrompt.split(',')]
-            commonTags = []
-            for tag in startTags:
-                if tag in endTags:
-                    fixedStartPrompt2 = fixedStartPrompt2.replace(tag, "")
-                    fixedEndPrompt2 = fixedEndPrompt2.replace(tag, "")
-                    if tag.strip() != "":
-                        commonTags.append(tag.strip())
+            # Removing logic to get common prompt as the user will now provide the common prompt
+            # fixedStartPrompt2 = fixedStartPrompt
+            # fixedEndPrompt2 = fixedEndPrompt
+            # startTags = [x.strip() for x in fixedStartPrompt.split(',')]
+            # endTags = [x.strip() for x in fixedEndPrompt.split(',')]
+            # commonTags = []
+            # for tag in startTags:
+            #     if tag in endTags:
+            #         fixedStartPrompt2 = fixedStartPrompt2.replace(tag, "")
+            #         fixedEndPrompt2 = fixedEndPrompt2.replace(tag, "")
+            #         if tag.strip() != "":
+            #             commonTags.append(tag.strip())
             
-            print(f"common tags: {commonTags}")
+            # print(f"common tags: {commonTags}")
 
             # We are going to make 5 poses so 5 prompts, but we might have 1 to 5 images. We must split the poses evenly
             prompts = []
             for promptIndex in range(5):
                 prompt = {
-                    "prompt": self.getPromptForSequence(fixedStartPrompt2, fixedEndPrompt2, ",".join(commonTags), promptIndex),
+                    "prompt": self.getPromptForSequence(fixedStartPrompt, fixedEndPrompt, fixedCommon, promptIndex),
                     "image": None if len(poseImages) == 0 else poseImages[math.floor(len(poseImages) / 5 * promptIndex)]
                 }
                 prompts.append(prompt)
@@ -1693,7 +1697,7 @@ class SynBotPrompt:
     # input bad jason string, tries to fix by replacing keys with string keys
     def fixInput(self, message):
         
-        keys = ["format:", "batch:", "hirez:", "prompt:", "negative:", "controlNet:", "pose:", "lewdPose:", "birthPose:", "scale:", "seed:", "removeBG:", "denoise:", "character:", "outfit:", "expressions:", "sequence:", "startPrompt:", "endPrompt:", "sequencePoses:", "sequenceType:"]
+        keys = ["format:", "batch:", "hirez:", "prompt:", "negative:", "controlNet:", "pose:", "lewdPose:", "birthPose:", "scale:", "seed:", "removeBG:", "denoise:", "character:", "outfit:", "expressions:", "sequence:", "startPrompt:", "endPrompt:", "sequencePoses:", "sequenceType:", "commonPrompt:"]
         fixed = message
         for key in keys:
             if key in fixed:
@@ -1737,10 +1741,7 @@ class SynBotPrompt:
                 if word.strip() != "":
                     endFixed += f"({word.strip()}:{endWeight}),"
 
-
-        prefix = LORA_List["QUALITY"] + ", (((white_background))), (((simple_background))), "
-
-        return prefix + startFixed + common + endFixed.rstrip(',')
+        return common + ", " + startFixed + endFixed.rstrip(',')
     
     async def createSequence(self, prompts):
         
