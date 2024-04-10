@@ -1711,9 +1711,12 @@ class SynBotPrompt:
         startFixed = ""
         startWeight = startWeights[index]
         for word in startWords:
-            # Ignore LORA
+            # more complicated with LORA
             if word.strip().startswith("<lora:"):
-                startFixed += word.strip() + ","
+                lora = word.strip().split(":")
+                maxWeight = float(lora[2].replace(">", ""))
+                correctedWeight = maxWeight * startWeights[index]
+                startFixed += f"<lora:{lora[1]}:{correctedWeight}>,"
             else:
                 if word.strip() != "":
                     startFixed += f"({word.strip()}:{startWeight}),"
@@ -1724,7 +1727,10 @@ class SynBotPrompt:
         for word in endWords:
             # Ignore LORA
             if word.strip().startswith("<lora:"):
-                endFixed += word.strip() + ","
+                lora = word.strip().split(":")
+                maxWeight = float(lora[2].replace(">", ""))
+                correctedWeight = maxWeight * endWeights[index]
+                endFixed += f"<lora:{lora[1]}:{correctedWeight}>,"
             else:
                 if word.strip() != "":
                     endFixed += f"({word.strip()}:{endWeight}),"
