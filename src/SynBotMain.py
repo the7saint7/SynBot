@@ -1853,12 +1853,17 @@ class SynBotPrompt:
                 break
 
         # Post on Discord Forum
-        await self.outputChanel.create_thread(
+        # Only send the stitched image
+        thread = await self.outputChanel.create_thread(
             name=f"{self.getTitle()} by {self.ctx.message.author.display_name}", 
             content=f"{self.ctx.author.mention} generated this image with prompt:\n```{self.getPromptWithSeed(responseSeedUsed)}```", 
-            files=discordFiles,
+            file=discordFiles[0],
             applied_tags=[forumTag]
         )
+
+        for prompt in prompts:
+            promptText = prompt["prompt"]
+            await thread.thread.send(f"```{promptText}```", file=discordFiles[prompts.index(prompt) +1])
 
 
         
