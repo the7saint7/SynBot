@@ -798,7 +798,7 @@ class SynBotPrompt:
                 "initial_noise_multiplier": 1,              # I think this one is for inpaint models only. Leave it at 1 just in case. a simple noise multiplier but since we are setting the denoising_strength it seems unnecessary - recommended to leave it at 1. Once again the API doc is stupid with the 0 default that f*cks up results.
                 "inpainting_fill": 1,                       # Value is int. 0 - 'fill', 1 - 'original', 2 - 'latent noise' and 3 - 'latent nothing'.
                 "resize_mode": 1,                           # Crop and Resize
-                "sampler_name": "DPM++ 2M Karras", 
+                "sampler_name": "DPM++ 2M", 
                 "batch_size": 1, # No batch for you! 
                 "steps": 50,
                 "seed": self.seedToUse, 
@@ -806,7 +806,7 @@ class SynBotPrompt:
                 "width": width, "height": height, 
                 "prompt": self.fixedPrompt, 
                 "negative_prompt": self.fixedNegative, 
-                "sampler_index": "DPM++ 2M Karras"
+                "sampler_index": "DPM++ 2M"
             }
 
             # Add ControlNet if requested in the parameters
@@ -832,7 +832,7 @@ class SynBotPrompt:
             payload = {
                 "prompt": self.fixedPrompt,
                 "negative_prompt": self.fixedNegative,
-                "sampler_name": "DPM++ 2M Karras",
+                "sampler_name": "DPM++ 2M",
                 "batch_size": self.batchCount,
                 "steps": 35,
                 "cfg_scale": 7,
@@ -849,7 +849,7 @@ class SynBotPrompt:
                 #payload["hr_resize_x"] = int(format.split("x")[0]) * HIREZ_SCALE
                 #payload["hr_resize_y"] = int(format.split("x")[1]) * HIREZ_SCALE
                 payload["hr_scale"] = self.hirezValue
-                payload["hr_sampler_name"] = "DPM++ 2M Karras"
+                payload["hr_sampler_name"] = "DPM++ 2M"
                 payload["hr_second_pass_steps"] = 20
             
             poseImage = None
@@ -890,7 +890,7 @@ class SynBotPrompt:
                 "init_images": [ self.userBaseImage ], 
                 "denoising_strength": self.denoise, 
                 "image_cfg_scale": 7, 
-                "sampler_name": "DPM++ 2M Karras", 
+                "sampler_name": "DPM++ 2M", 
                 "batch_size": self.batchCount, 
                 "steps": 30,
                 "seed": self.seedToUse, 
@@ -898,7 +898,7 @@ class SynBotPrompt:
                 "width": pilImage.width, "height": pilImage.height, 
                 "prompt": self.fixedPrompt, 
                 "negative_prompt": self.fixedNegative, 
-                "sampler_index": "DPM++ 2M Karras"
+                "sampler_index": "DPM++ 2M"
             }
 
             # Add ControlNet if requested in the parameters
@@ -946,7 +946,7 @@ class SynBotPrompt:
                 "initial_noise_multiplier": 1,              # I think this one is for inpaint models only. Leave it at 1 just in case. a simple noise multiplier but since we are setting the denoising_strength it seems unnecessary - recommended to leave it at 1. Once again the API doc is stupid with the 0 default that f*cks up results.
                 "inpainting_fill": 1,                       # Value is int. 0 - 'fill', 1 - 'original', 2 - 'latent noise' and 3 - 'latent nothing'.
                 "resize_mode": 1,                           # Crop and Resize
-                "sampler_name": "DPM++ 2M Karras", 
+                "sampler_name": "DPM++ 2M", 
                 "batch_size": self.batchCount, 
                 "steps": 30,
                 "seed": self.seedToUse, 
@@ -954,7 +954,7 @@ class SynBotPrompt:
                 "width": width, "height": height, 
                 "prompt": self.fixedPrompt, 
                 "negative_prompt": self.fixedNegative, 
-                "sampler_index": "DPM++ 2M Karras"
+                "sampler_index": "DPM++ 2M"
             }
 
             # Add ControlNet if requested in the parameters # DO NOT USE "userControlNetImage", it contains the MASK
@@ -995,8 +995,8 @@ class SynBotPrompt:
                 "initial_noise_multiplier": 1,              # I think this one is for inpaint models only. Leave it at 1 just in case. a simple noise multiplier but since we are setting the denoising_strength it seems unnecessary - recommended to leave it at 1. Once again the API doc is stupid with the 0 default that f*cks up results.
                 "inpainting_fill": 1,                       # Value is int. 0 - 'fill', 1 - 'original', 2 - 'latent noise' and 3 - 'latent nothing'.
                 "resize_mode": 1,                           # Crop and Resize
-                "sampler_name": "DPM++ 2M Karras", 
-                "sampler_name": "DPM++ 2M Karras", 
+                "sampler_name": "DPM++ 2M", 
+                "sampler_name": "DPM++ 2M", 
                 "batch_size": self.batchCount, 
                 "steps": 30,
                 "seed": self.seedToUse, 
@@ -1004,7 +1004,7 @@ class SynBotPrompt:
                 "width": width, "height": height, 
                 "prompt": self.fixedPrompt, 
                 "negative_prompt": self.fixedNegative, 
-                "sampler_index": "DPM++ 2M Karras"
+                "sampler_index": "DPM++ 2M"
             }
 
             # Add openPose as controlNet helper, should I also ad Depth? It might cause the outfit to "mold" to the body if using a nude image :shrug 
@@ -1032,7 +1032,7 @@ class SynBotPrompt:
             payload = {
                 "prompt": self.fixedPrompt,
                 "negative_prompt": self.fixedNegative,
-                "sampler_name": "DPM++ 2M Karras",
+                "sampler_name": "DPM++ 2M",
                 "batch_size": self.batchCount,
                 "steps": 35,
                 "cfg_scale": 7,
@@ -1047,7 +1047,7 @@ class SynBotPrompt:
             payload["enable_hr"] = True
             payload["hr_upscaler"] = "4x-UltraSharp"
             payload["hr_scale"] = 2.0 if self.hirez == False else 3.0                         
-            payload["hr_sampler_name"] = "DPM++ 2M Karras"
+            payload["hr_sampler_name"] = "DPM++ 2M"
             payload["hr_second_pass_steps"] = 20
             
             # Add ControlNet if requested in the parameters
@@ -1144,7 +1144,7 @@ class SynBotPrompt:
                     "initial_noise_multiplier": 1,              # I think this one is for inpaint models only. Leave it at 1 just in case. a simple noise multiplier but since we are setting the denoising_strength it seems unnecessary - recommended to leave it at 1. Once again the API doc is stupid with the 0 default that f*cks up results.
                     "inpainting_fill": 1,                       # Value is int. 0 - 'fill', 1 - 'original', 2 - 'latent noise' and 3 - 'latent nothing'.
                     "resize_mode": 1,                           # Crop and Resize
-                    "sampler_name": "DPM++ 2M Karras", 
+                    "sampler_name": "DPM++ 2M", 
                     "batch_size": 1, # no batch for you!
                     "steps": 35,
                     "seed": self.seedToUse, 
@@ -1152,7 +1152,7 @@ class SynBotPrompt:
                     "width": width, "height": height, 
                     "prompt": self.fixedPrompt, 
                     "negative_prompt": self.fixedNegative, 
-                    "sampler_index": "DPM++ 2M Karras",
+                    "sampler_index": "DPM++ 2M",
                     "script_name": "x/y/z plot",
                     "script_args": self.get_xyz_script_args(self.expressions),
                 }
@@ -1164,7 +1164,7 @@ class SynBotPrompt:
                     "init_images": [ self.userBaseImage ], 
                     "denoising_strength": self.denoise, 
                     "image_cfg_scale": 7, 
-                    "sampler_name": "DPM++ 2M Karras", 
+                    "sampler_name": "DPM++ 2M", 
                     "batch_size": 1, # no batch for you!
                     "steps": 35,
                     "seed": self.seedToUse, 
@@ -1172,7 +1172,7 @@ class SynBotPrompt:
                     "width": width, "height": height, 
                     "prompt": self.fixedPrompt, 
                     "negative_prompt": self.fixedNegative, 
-                    "sampler_index": "DPM++ 2M Karras",
+                    "sampler_index": "DPM++ 2M",
                     "resize_mode": 1, # Crop and Resize
                     "script_name": "x/y/z plot",
                     "script_args": self.get_xyz_script_args(self.expressions),
@@ -1357,6 +1357,7 @@ class SynBotPrompt:
                 else:
                     await self.ctx.send(f"{self.ctx.author.mention} -> API server returned an unknown error. Try again?")
                     print(response)
+                    print(json.dumps(payload))
         
 
     def getPromptWithSeed(self, seed):
@@ -1407,7 +1408,7 @@ class SynBotPrompt:
         
         if toFile:
             file = open("output.txt", "w")
-            json.dump(payloadCopy, file, indent=4)
+            json.dumps(payloadCopy, file, indent=4)
             file.close
         else:
             print(payloadCopy)
@@ -1539,8 +1540,8 @@ class SynBotPrompt:
             "initial_noise_multiplier": 1,              # I think this one is for inpaint models only. Leave it at 1 just in case. a simple noise multiplier but since we are setting the denoising_strength it seems unnecessary - recommended to leave it at 1. Once again the API doc is stupid with the 0 default that f*cks up results.
             "inpainting_fill": 1,                       # Value is int. 0 - 'fill', 1 - 'original', 2 - 'latent noise' and 3 - 'latent nothing'.
             "resize_mode": 1,                           # Crop and Resize
-            "sampler_name": "DPM++ 2M Karras", 
-            "sampler_name": "DPM++ 2M Karras", 
+            "sampler_name": "DPM++ 2M", 
+            "sampler_name": "DPM++ 2M", 
             "batch_size": 1, 
             "steps": 30,
             "seed": self.seedToUse, 
@@ -1548,7 +1549,7 @@ class SynBotPrompt:
             "width": width * 1.5, "height": height * 1.5, 
             "prompt": self.fixedPrompt, 
             "negative_prompt": self.fixedNegative, 
-            "sampler_index": "DPM++ 2M Karras"
+            "sampler_index": "DPM++ 2M"
         }
         
         # file = open("output.txt", "w")
@@ -1644,6 +1645,7 @@ class SynBotPrompt:
                 else:
                     await self.ctx.send(f"{self.ctx.author.mention} -> API server returned an unknown error. Try again?")
                     print(response)
+                    print(json.dumps(payload))
 
     def get_xyz_script_args(self, expressions):
 
@@ -1759,7 +1761,7 @@ class SynBotPrompt:
             payload = {
                 "prompt": prompt["prompt"],
                 "negative_prompt": self.fixedNegative,
-                "sampler_name": "DPM++ 2M Karras",
+                "sampler_name": "DPM++ 2M",
                 "batch_size": self.batchCount,
                 "steps": 35,
                 "cfg_scale": 7,
@@ -1776,7 +1778,7 @@ class SynBotPrompt:
                 #payload["hr_resize_x"] = int(format.split("x")[0]) * HIREZ_SCALE
                 #payload["hr_resize_y"] = int(format.split("x")[1]) * HIREZ_SCALE
                 payload["hr_scale"] = self.hirezValue
-                payload["hr_sampler_name"] = "DPM++ 2M Karras"
+                payload["hr_sampler_name"] = "DPM++ 2M"
                 payload["hr_second_pass_steps"] = 20
 
             if prompt["image"] != None:
