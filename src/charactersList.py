@@ -25,7 +25,7 @@ charactersLORA = {
     "IZUNA": "<lora:stIzuna:.5>, stIzuna, blue_hair, yellow_eyes, cat_ears. large_breasts",
     "JACK": "<lora:stJack:.5>, stJack, brown_hair, red_eyes, short_hair",
     "JANE": "<lora:stJane2:.5>, stJane, black_hair, black_eyes, large_breasts, long_hair",
-    "JOHN-GIRL": "<lora:JohnGB3:.5>, JohnGB3, person, black_hair, black_eyes, large_breasts, long_hair, straight_hair, wide_hips",
+    "JOHN-GIRL": "<lora:johnGB3:.5>, johnGB3, person, black_hair, black_eyes, large_breasts, long_hair, straight_hair, wide_hips",
     "JOHN-BOY": "<lora:stJohn:.5>, stJohn, black_hair, black_eyes",
     "KATRINA": "<lora:stKatrina2:.5>, stKatrina, orange_hair, short_hair, messy_hair, green_eyes, medium_breasts, ",
     "KIYOSHI-GIRL": "<lora:stKiyo:.5>, stKiyo, purple_hair, red_eyes, long_hair, very_long_hair, small_breasts",
