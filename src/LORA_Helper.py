@@ -36,6 +36,7 @@ LORA_List = {
     "WEAPON-BLADES": " <lora:KatanaOneHandV5:1>, basic grip",
     "TKCHEER": " <lora:stCheerUniform3:.75>, stCheerUniform cheerleader, red_shirt, bare_shoulders,  cleavage, collar_bone, midriff, navel, skirt, (((white_skirt))), pleated skirt, (((pom pom \(cheerleading\)))), yellow pom pom \(cheerleading\)",
     "DOWN-BLOUSE": "<lora:EDB:1> downblouse, extended downblouse, leaning_forward",
+    "HEADLESS": "<lora:DisembodiedHeadV2:.8>, DisembodiedHead, holding head, headless",
 
      "OUTFIT_KAT_CASUAL": "<lora:stOutfits:.6>, stOutfits, katrina_casual, shirt, (((yellow_shirt))), cleavage, collarbone, midriff, navel,  blue_shorts, brown_belt, blue bra, taut shorts, bow, stKatrina, <lora:stKatrina:.4>",
      "OUTFIT_KAT_MAID": " <lora:stOutfits:.6>, stOutfits, katrina_maid, maid, white apron, dress, thighhighs, blue_dress,  <lora:stKatrina2:.4> , stKatrina, white collar, collared dress, black thighhighs,  short sleeves",
