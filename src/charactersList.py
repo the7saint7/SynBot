@@ -63,5 +63,5 @@ charactersLORA = {
     "NIKKI": "<lora:tosNikki3:.75>, dark_skin, dark_skinned_female, short_hair, undercut, streaked_hair, black_hair, purple streaked_hair, blue_eyes, medium_breasts",
     "RIRISA": "<lora:tosRirisa:.5>, tosRirisa, blonde_hair, long_hair, straight_hair, forehead, hair_ornament, large_breasts, shortstack, yellow_eyes, pink_tips",
     "YOUKO": "<lora:tosYouko:.5> , tosYouko, blonde_hair, purple_eyes, large_breasts, tan, dark_skinned_girl, long_hair, ((wavy_hair)),  earrings, bracelet,  (((forehead))), gyaru",
-    "VANESSA": "<lora:stVanessa:.5>, stVanessa, 1girl, red_hair, blue_eyes, chocker, bracelet, medium_breasts, long_hair, ahegao, ponytail"
+    "VANESSA": "<lora:stVanessa:.5>, stVanessa, 1girl, red_hair, blue_eyes"
 }
