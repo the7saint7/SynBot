@@ -108,6 +108,9 @@ class SynBotPrompt:
         self.commonPrompt = ""
         self.sequenceType = "Default"
 
+        # Checkpoint
+        self.checkpoint = None # Default AnyLora
+
         # The message that was sent
         message = str(self.ctx.message.content)
 
@@ -550,6 +553,7 @@ class SynBotPrompt:
         if "lewdPose" in jsonData: self.lewdPoseNumber = jsonData["lewdPose"]
         if "removeBG" in jsonData: self.removeBG = jsonData["removeBG"] == "true"
         if "lewdPose" in jsonData: self.lewdPoseNumber = jsonData["lewdPose"]
+        if "checkpoint" in jsonData: self.checkpoint = "722141adbc" if jsonData["checkpoint"] == "cartoon" else None 
         # if "enableControlNet" in jsonData: self.enableControlNet= jsonData["enableControlNet"] == "true"
 
         # Reset batchCount if hirez
@@ -1264,9 +1268,17 @@ class SynBotPrompt:
             return
 
 
+        ############################# CHECKPOINT #########################################
+        # Override settings for custom checkpoint
+        if self.checkpoint != None:
+            print(f"Switching checkpoint to: {self.checkpoint}")
+            payload["override_settings"] = {
+                "sd_model_checkpoint": self.checkpoint
+            }
 
         ######################### END PAYLOAD BUILDING #####################################
         
+        # print(payload)
         # self.printPayload(payload, toFile=True, shorten=False)
 
         # Sending API call request
@@ -1699,7 +1711,7 @@ class SynBotPrompt:
     # input bad jason string, tries to fix by replacing keys with string keys
     def fixInput(self, message):
         
-        keys = ["format:", "batch:", "hirez:", "prompt:", "negative:", "controlNet:", "pose:", "lewdPose:", "birthPose:", "scale:", "seed:", "removeBG:", "denoise:", "character:", "outfit:", "expressions:", "sequence:", "startPrompt:", "endPrompt:", "sequencePoses:", "sequenceType:", "commonPrompt:"]
+        keys = ["format:", "batch:", "hirez:", "prompt:", "negative:", "controlNet:", "pose:", "lewdPose:", "birthPose:", "scale:", "seed:", "removeBG:", "denoise:", "character:", "outfit:", "expressions:", "sequence:", "startPrompt:", "endPrompt:", "sequencePoses:", "sequenceType:", "commonPrompt:", "checkpoint:"]
         fixed = message
         for key in keys:
             if key in fixed:
