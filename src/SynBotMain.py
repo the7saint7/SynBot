@@ -109,6 +109,7 @@ class SynBotPrompt:
         self.sequenceType = "Default"
 
         # Checkpoint
+        # "cartoon" checkpoint: https://civitai.com/models/78306/cartoon-style
         self.checkpoint = None # Default AnyLora
 
         # The message that was sent
