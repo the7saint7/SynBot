@@ -37,7 +37,7 @@ LORA_List = {
     "TKCHEER": " <lora:stCheerUniform3:.75>, stCheerUniform cheerleader, red_shirt, bare_shoulders,  cleavage, collar_bone, midriff, navel, skirt, (((white_skirt))), pleated skirt, (((pom pom \(cheerleading\)))), yellow pom pom \(cheerleading\)",
     "DOWN-BLOUSE": "<lora:EDB:1> downblouse, extended downblouse, leaning_forward",
     "HEADLESS": "<lora:DisembodiedHeadV2:1.0>, DisembodiedHead, holding head, headless",
-    "GENIE": "<lora:genie:.9>, genie, genie_tail, smoke_tail, smoke, magic_lamp",
+    "GENIE": "<lora:genie3:.85>, genie, genie_tail, smoke_tail, smoke, magic_lamp, glowing, smoke_tail, smoke_hair, ponytail, magic, pointy_ears, bracer, belt, gold_belt, gold_bracer, floating",
 
      "OUTFIT_KAT_CASUAL": "<lora:stOutfits:.6>, stOutfits, katrina_casual, shirt, (((yellow_shirt))), cleavage, collarbone, midriff, navel,  blue_shorts, brown_belt, blue bra, taut shorts, bow, stKatrina, <lora:stKatrina:.4>",
      "OUTFIT_KAT_MAID": " <lora:stOutfits:.6>, stOutfits, katrina_maid, maid, white apron, dress, thighhighs, blue_dress,  <lora:stKatrina2:.4> , stKatrina, white collar, collared dress, black thighhighs,  short sleeves",
