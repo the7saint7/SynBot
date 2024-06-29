@@ -554,7 +554,11 @@ class SynBotPrompt:
         if "lewdPose" in jsonData: self.lewdPoseNumber = jsonData["lewdPose"]
         if "removeBG" in jsonData: self.removeBG = jsonData["removeBG"] == "true"
         if "lewdPose" in jsonData: self.lewdPoseNumber = jsonData["lewdPose"]
-        if "checkpoint" in jsonData: self.checkpoint = "722141adbc" if jsonData["checkpoint"] == "cartoon" else None 
+        if "checkpoint" in jsonData: 
+            if jsonData["checkpoint"] == "cartoon":
+                self.checkpoint = "722141adbc"
+            elif jsonData["checkpoint"] == "hentai":
+                self.checkpoint = "8145104977"
         # if "enableControlNet" in jsonData: self.enableControlNet= jsonData["enableControlNet"] == "true"
 
         # Reset batchCount if hirez
