@@ -64,5 +64,6 @@ charactersLORA = {
     "RIRISA": "<lora:tosRirisa:.5>, tosRirisa, blonde_hair, long_hair, straight_hair, forehead, hair_ornament, large_breasts, shortstack, yellow_eyes, pink_tips",
     "YOUKO": "<lora:tosYouko:.5> , tosYouko, blonde_hair, purple_eyes, large_breasts, tan, dark_skinned_girl, long_hair, ((wavy_hair)),  earrings, bracelet,  (((forehead))), gyaru",
     "VANESSA": "<lora:stVanessa:.5>, stVanessa, 1girl, red_hair, blue_eyes",
-    "CHELVI": " <lora:chelvi2:.5>, chelvi,  brown_eyes, long_hair, dark-skinned_female, black_hair, small_breasts"
+    "CHELVI": " <lora:chelvi2:.5>, chelvi,  brown_eyes, long_hair, dark-skinned_female, black_hair, small_breasts",
+    "CHARLOTTE": "<lora:stCharlotte:0.5>,STCharlotte,1girl,large breasts,black hair,medium hair,hair between eyes,low tied hair,hair over shoulder,sidelocks,red_eyes"
 }
