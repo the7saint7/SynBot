@@ -409,14 +409,14 @@ class SynBotPrompt:
 
             # Using the INPAINT base and mask image, as we're basically doing inpaint
             ###################### START DEFAULT BASE AND MASK IMAGE
-            baseImagePath = f"./sprites/{self.outfitsCharacter}/{self.outfitsPose}_{self.outfitsName}.png"
+            baseImagePath = f"./src/sprites/{self.outfitsCharacter}/{self.outfitsPose}_{self.outfitsName}.png"
             if not os.path.exists(baseImagePath):
                 self.errorMsg = f"{self.ctx.author.mention} -> {baseImagePath} does not exist."
                 self.isValid = False
                 return
             self.userBaseImage = getImageAtPath(baseImagePath)
             
-            maskImagePath = f"./sprites/{self.outfitsCharacter}/{self.outfitsPose}_{mask}.png"
+            maskImagePath = f"./src/sprites/{self.outfitsCharacter}/{self.outfitsPose}_{mask}.png"
             if not os.path.exists(maskImagePath):
                 self.errorMsg = f"{self.ctx.author.mention} -> {maskImagePath} does not exist."
                 self.isValid = False
