@@ -581,6 +581,8 @@ class SynBotPrompt:
                 self.checkpoint = "722141adbc"
             elif jsonData["checkpoint"] == "hentai":
                 self.checkpoint = "8145104977"
+            elif jsonData["checkpoint"] == "dream":
+                self.checkpoint = "ed989d673d"
         # if "enableControlNet" in jsonData: self.enableControlNet= jsonData["enableControlNet"] == "true"
 
         # Reset batchCount if hirez
