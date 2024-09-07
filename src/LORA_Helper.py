@@ -49,6 +49,5 @@ LORA_List = {
      "OUTFIT_JANE_DRESS_WHITE": "<lora:stOutfits:.6>, stOutfits, jane_casual, dress,  (((aqua_dress))), cleavage, black_jacket, long sleeves, sleeves rolled up, black legwear,  <lora:stJane2:.5> , stJane, open jacket, aqua dress under jacket, collared",
      "OUTFITS_JOHN_CASUAL": "<lora:stJohn:.5> , stJohn, (((green hoodie))), (((open hoodie))), white shirt, (((undershirt))), pants",
 
-     "PANG_STSTYLE":"<lora:STspritestyleV8:6>",
-     "PANG_STSTYLE_WEAK":"<lora:STspritestyleV8:.3>"
+     "PANG_STSTYLE":"<lora:STspritestyleV8:.3>"
 }
