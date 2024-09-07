@@ -412,15 +412,15 @@ class SynBotPrompt:
 
             # image path could change
             current_directory = os.getcwd()
-            baseImagePath = f"./sprites/{self.outfitsCharacter}/{self.outfitsPose}_{self.outfitsName}.png"
-            maskImagePath = f"./sprites/{self.outfitsCharacter}/{self.outfitsPose}_{mask}.png"
+            baseImagePath = f"{self.getPath()}/sprites/{self.outfitsCharacter}/{self.outfitsPose}_{self.outfitsName}.png"
+            maskImagePath = f"{self.getPath()}/sprites/{self.outfitsCharacter}/{self.outfitsPose}_{mask}.png"
 
-            if os.path.exists(current_directory + os.sep + "src"+os.sep+"sprites/"):
-                baseImagePath = f"./src/sprites/{self.outfitsCharacter}/{self.outfitsPose}_{self.outfitsName}.png"
-                maskImagePath = f"./src/sprites/{self.outfitsCharacter}/{self.outfitsPose}_{mask}.png"
-            elif os.path.exists(current_directory + os.sep + "synbot"+os.sep+"src"+os.sep+"sprites/"):
-                baseImagePath = f"./synbot/src/sprites/{self.outfitsCharacter}/{self.outfitsPose}_{self.outfitsName}.png"
-                maskImagePath = f"./synbot/src/sprites/{self.outfitsCharacter}/{self.outfitsPose}_{mask}.png"
+            # if os.path.exists(current_directory + os.sep + "src"+os.sep+"sprites/"):
+            #     baseImagePath = f"./src/sprites/{self.outfitsCharacter}/{self.outfitsPose}_{self.outfitsName}.png"
+            #     maskImagePath = f"./src/sprites/{self.outfitsCharacter}/{self.outfitsPose}_{mask}.png"
+            # elif os.path.exists(current_directory + os.sep + "synbot"+os.sep+"src"+os.sep+"sprites/"):
+            #     baseImagePath = f"./synbot/src/sprites/{self.outfitsCharacter}/{self.outfitsPose}_{self.outfitsName}.png"
+            #     maskImagePath = f"./synbot/src/sprites/{self.outfitsCharacter}/{self.outfitsPose}_{mask}.png"
 
             # baseImagePath = f"./src/sprites/{self.outfitsCharacter}/{self.outfitsPose}_{self.outfitsName}.png"
             if not os.path.exists(baseImagePath):
@@ -486,7 +486,7 @@ class SynBotPrompt:
                 # Loop the poses and get their bytes? Then merge them into a single image, side by side
                 poseImages = []
                 for pose in self.birthPoses:
-                    posePath = f"./poses/portrait_cowboy_shot/{pose}.png"
+                    posePath = f"{self.getPath()}/poses/portrait_cowboy_shot/{pose}.png"
                     if not os.path.exists(posePath):
                         self.errorMsg = f"{self.ctx.author.mention} -> {posePath} does not exist."
                         self.isValid = False
@@ -610,6 +610,19 @@ class SynBotPrompt:
                 
         # print(vars(self))
 
+    # Utility to get the right path for files
+    def getPath(self):
+
+        current_directory = os.getcwd()
+
+        if os.path.exists(current_directory + os.sep + "sprites"):
+            return "."
+        elif os.path.exists(current_directory + os.sep + "src"+os.sep+"sprites"):
+            return "./src"
+        elif os.path.exists(current_directory + os.sep + "synbot" + os.sep + "src" + os.sep + "sprites"):
+            return "./synbot/src"
+
+        return "." # default; what else could I return?
 
     # Utility function to load user images
     def loadUserSubmittedImages(self, forInpaint=False):
@@ -1162,7 +1175,7 @@ class SynBotPrompt:
                 open_cv_image_mask = cv2.cvtColor(open_cv_image_mask, cv2.COLOR_RGB2BGR)
 
                 # From https://github.com/XavierJiezou/anime-face-detection?tab=readme-ov-file#repository-3
-                model_path = "./model/ssd_anime_face_detect.pth"
+                model_path = f"{self.getPath()}/model/ssd_anime_face_detect.pth"
                 faces = ssd_anime_face_detect_from_cv2_Image(open_cv_image, model_path)
 
                 # Loop faces and paint rectangle in white
