@@ -10,6 +10,7 @@ import aiohttp
 import asyncio
 import discord
 import requests
+import functools
 import numpy as np
 from PIL import Image
 from dotenv import load_dotenv
@@ -120,9 +121,11 @@ class SynBotPrompt:
         prefixes = ["!Syn-txt2img", "!Syn-img2img", "!Syn-inpaint", "!Syn-outfits", "!Syn2-txt2img", "!Syn2-img2img", "!Syn2-inpaint", "!Syn2-outfits", "!Syn-birth", "!Syn2-birth", "!Syn-expressions", "!Syn2-expressions", "!Syn-removeBG", "!Syn2-removeBG", "!Syn-superHiRez", "!Syn2-superHiRez", "!Syn-mask", "!Syn2-mask", "!Syn-sequence", "!Syn2-sequence"]
         for prefix in prefixes:
             message = message.removeprefix(prefix)
+        
+        message = parse(message.strip())
 
         # Try to load the JSON data, return if its invalid
-        if len(message) == 0 or not message.find("{"): # removeBG does not contain any extra parameter
+        if len(message) == 0 or message.find("{") == -1: # removeBG does not contain any extra parameter
             print("No json data found in message, defaulting to empty jsonData")
             jsonData = []
         else:
@@ -1485,7 +1488,7 @@ class SynBotPrompt:
         print("Title: " + self.userPrompt)
         return title.strip()
 
-    def printPayload(self, payload, toFile=False, shorten=True) :
+    def printPayload(self, payload, toFile=False, shorten=True):
         payloadCopy = payload.copy()
         if shorten and "init_images" in payloadCopy: 
             for file in payloadCopy["init_images"]:
@@ -1500,7 +1503,7 @@ class SynBotPrompt:
         if toFile:
             file = open("output.txt", "w")
             json.dumps(payloadCopy, file, indent=4)
-            file.close
+            file.close()
         else:
             print(payloadCopy)
 
@@ -1574,7 +1577,7 @@ class SynBotPrompt:
         # Remove pre-processor if not needed
         if not preProcess:
             print("Removing preprocessor...")
-            script_payload[len(script_payload) -1]["module"] = None
+            script_payload[len(script_payload) -1].pop("module", None)
         
         
         
@@ -1960,4 +1963,92 @@ class SynBotPrompt:
             await thread.thread.send(f"```{promptText}```", file=discordFiles[prompts.index(prompt) +1])
 
 
-        
+def parse_shortcut_str(value:str) -> str:
+    return value.strip().replace('\n', '')
+
+
+def parse_format(value: str) -> str:
+    return parse_shortcut_str(value)
+
+def parse_prompt(value: str) -> str:
+    return parse_shortcut_str(value)
+
+
+def parse_negative(value: str) -> str:
+    return parse_shortcut_str(value)
+
+
+def parse_hirez(value: str) -> str:
+    value = value.strip()
+    if not value:
+        return "true"
+    return value
+
+
+def parse_controlNet(value: str) -> list[str]:
+    # Perform str.split().replace('\n','') on every string
+    return list(
+                map(lambda string: string.replace('\n', ''),
+                    map(str.strip,
+                        value.split(',')
+                        )
+                    )
+                )
+
+
+def parse_denoise(value: str) -> float:
+    return float(value.strip().replace('\n', ''))
+
+
+def parse_checkpoint(value: str) -> str:
+    return parse_shortcut_str(value)
+
+
+def parse_seed(value: str) -> float:
+    return float(value.strip().replace('\n', ''))
+
+
+def parse_batch(value: str) -> int:
+    return int(value.strip().replace('\n', ''))
+
+def parse_lewdPose(value: str) -> int:
+    return int(value.strip().replace('\n', ''))
+
+
+def parse_birthPoses(value: str) -> list[int]:
+    # Perform int(str.split().replace('\n','')) on every string
+    return list(
+                map(int,
+                    map(functools.partial(str.replace, old='\n', new=''),
+                        map(str.strip,
+                            value.split(',')
+                            )
+                        )
+                    )
+                )
+
+def parse(message: str) -> str:
+    lines = filter(bool, map(str.strip, message.splitlines(False)))
+    json_master = {}
+
+    def handle(key, val):
+        key = key.strip()
+        if f"parse_{key}" in globals():
+            json_master[key] = globals()[f"parse_{key}"](val)
+        else:
+            print(f"Key {current_key} not recognized")
+            json_master[key] = val.strip()
+
+    current_key = ""
+    current_val = ""
+    for idx, line in enumerate(lines):
+        if ':' in line:
+            if current_key:
+                handle(current_key, current_val)
+
+            current_key, _, current_val = line.partition(':')
+            current_key.strip()
+        else:
+            current_val += "\n" + line
+    handle(current_key, current_val)
+    return json.dumps(json_master)
