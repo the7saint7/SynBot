@@ -87,7 +87,7 @@ async def addToQueue(ctx, newPrompt: SynBotPrompt):
     newPrompt.URL = getAPIURL()
     synBot = "Syn2-Bot" if syn2 else "Syn-Bot"
     if newPrompt.type == "txt2img":
-        await ctx.send(f"Queuing request from {ctx.message.author.display_name} , in " + newPrompt.availableFormatSize[newPrompt.formatIndex] + appendHirez + " format, on " + synBot + ".")
+        await ctx.send(f"Queuing request from {ctx.message.author.display_name} , in " + newPrompt.getFormatString() + appendHirez + " format, on " + synBot + ".")
     elif newPrompt.type == "outfits":
         await ctx.send(f"**Creating new outfit** for {newPrompt.outfitsCharacter} on **{synBot}** , requested by {ctx.message.author.display_name}.")
     elif newPrompt.type == "birth":

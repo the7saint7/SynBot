@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 from LORA_Helper import LORA_List
 from discord.ext import tasks, commands
 from charactersList import charactersLORA
+from SDXL import SDXL_List 
 from ssd_anime_face_detect import ssd_anime_face_detect_from_cv2_Image
 from openPoses import getPose, getLewdPose, getImageAtPath, getBase64FromImage, getImageFormBase64, getBase64StringFromOpenCV, getSequencePose
 
@@ -54,6 +55,7 @@ class SynBotPrompt:
         # Available format string
         self.availableFormatString = ["landscape", "portrait", "panno"]
         self.availableFormatSize = ["640x360", "360x640", "920x360"]
+        self.availableFormatSizeXL = ["1280x720", "720x1280", "920x360"]
 
         self.availableSequenceTypes = ["Default", "Growth", "Shrink"]
 
@@ -113,6 +115,9 @@ class SynBotPrompt:
         # Checkpoint
         # "cartoon" checkpoint: https://civitai.com/models/78306/cartoon-style
         self.checkpoint = None # Default AnyLora
+
+        # Use SDXL?
+        self.sdxl = False # Default nope!
 
         # The message that was sent
         message = str(self.ctx.message.content)
@@ -579,7 +584,11 @@ class SynBotPrompt:
         if "lewdPose" in jsonData: self.lewdPoseNumber = jsonData["lewdPose"]
         if "removeBG" in jsonData: self.removeBG = jsonData["removeBG"] == "true"
         if "lewdPose" in jsonData: self.lewdPoseNumber = jsonData["lewdPose"]
+        if "sdxl" in jsonData: self.sdxl = jsonData["sdxl"] == "true"
         if "checkpoint" in jsonData: 
+            if self.sdxl:
+                print("Using SDXL checkpoint")
+                self.checkpoint = "517caf19d7"
             if jsonData["checkpoint"] == "cartoon":
                 self.checkpoint = "722141adbc"
             elif jsonData["checkpoint"] == "hentai":
@@ -599,22 +608,38 @@ class SynBotPrompt:
         self.fixedPrompt = self.userPrompt
         self.fixedNegative = self.userNegative
 
-        for key in charactersLORA.keys():
-            if key in self.fixedPrompt:
-                print("Found: " + key)
-                self.fixedPrompt = self.fixedPrompt.replace(key, charactersLORA[key])
+        if self.sdxl:
+            for key in SDXL_List.keys():
+                if key in self.fixedPrompt:
+                    print("Found: " + key)
+                    self.fixedPrompt = self.fixedPrompt.replace(key, SDXL_List[key])
+                if key in self.userNegative:
+                    print("Found: " + key + " in negative")
+                    self.fixedNegative = self.fixedNegative.replace(key, SDXL_List[key])
+        else:
+            for key in charactersLORA.keys():
+                if key in self.fixedPrompt:
+                    print("Found: " + key)
+                    self.fixedPrompt = self.fixedPrompt.replace(key, charactersLORA[key])
 
-        # Same for LORA Helpers
-        for key in LORA_List.keys():
-            if key in self.fixedPrompt:
-                print("Found: " + key + " in prompt")
-                self.fixedPrompt = self.fixedPrompt.replace(key, LORA_List[key])
-            if key in self.userNegative:
-                print("Found: " + key + " in negative")
-                self.fixedNegative = self.fixedNegative.replace(key, LORA_List[key])
+            # Same for LORA Helpers
+            for key in LORA_List.keys():
+                if key in self.fixedPrompt:
+                    print("Found: " + key + " in prompt")
+                    self.fixedPrompt = self.fixedPrompt.replace(key, LORA_List[key])
+                if key in self.userNegative:
+                    print("Found: " + key + " in negative")
+                    self.fixedNegative = self.fixedNegative.replace(key, LORA_List[key])
         ############### END Replace prompt tags
                 
         # print(vars(self))
+
+    # Used to get the string format size in synbot.py
+    def getFormatString(self):
+        if self.sdxl:
+            return self.availableFormatSizeXL[self.formatIndex]
+        else:
+            return self.availableFormatSize[self.formatIndex]
 
     # Utility to get the right path for files
     def getPath(self):
@@ -908,25 +933,45 @@ class SynBotPrompt:
         #########################        TXT2IMG         #####################################
         elif self.type == "txt2img":
             
-            format = self.availableFormatSize[self.formatIndex]
+            print(f"SDXL: {self.sdxl}")
+            if self.sdxl:
+                format = self.availableFormatSizeXL[self.formatIndex]
+            else:
+                format = self.availableFormatSize[self.formatIndex]
+
 
             # Where do we send the request?
             apiPath = "/sdapi/v1/txt2img"
 
-            payload = {
-                "prompt": self.fixedPrompt,
-                "negative_prompt": self.fixedNegative,
-                "sampler_name": "DPM++ 2M",
-                "batch_size": self.batchCount,
-                "steps": 35,
-                "cfg_scale": 7,
-                "width": int(format.split("x")[0]),
-                "height": int(format.split("x")[1]),
-                "restore_faces": False,
-                "seed": self.seedToUse
-            }
+            if self.sdxl:
+                payload = {
+                    "prompt": self.fixedPrompt,
+                    "negative_prompt": self.fixedNegative,
+                    "sampler_name": "Euler a",
+                    "scheduler": "Karras",
+                    "batch_size": 1,
+                    "steps": 20,
+                    "cfg_scale": 7,
+                    "width": int(format.split("x")[0]),
+                    "height": int(format.split("x")[1]),
+                    "restore_faces": False,
+                    "seed": self.seedToUse
+                }
+            else:
+                payload = {
+                    "prompt": self.fixedPrompt,
+                    "negative_prompt": self.fixedNegative,
+                    "sampler_name": "DPM++ 2M",
+                    "batch_size": self.batchCount,
+                    "steps": 35,
+                    "cfg_scale": 7,
+                    "width": int(format.split("x")[0]),
+                    "height": int(format.split("x")[1]),
+                    "restore_faces": False,
+                    "seed": self.seedToUse
+                }
 
-            if self.hirez:
+            if self.hirez and not self.sdxl:
                 payload["denoising_strength"] = 0.5
                 payload["enable_hr"] = True
                 payload["hr_upscaler"] = "4x-UltraSharp"
@@ -2027,6 +2072,13 @@ def parse_birthPoses(value: str) -> list[int]:
                     )
                 )
 
+def parse_sdxl(value: str) -> str:
+    value = value.strip()
+    print(f"VALUE: {value}")
+    if not value:
+        return "false"
+    return value
+
 def parse(message: str) -> str:
     lines = filter(bool, map(str.strip, message.splitlines(False)))
     json_master = {}
@@ -2049,6 +2101,13 @@ def parse(message: str) -> str:
             current_key, _, current_val = line.partition(':')
             current_key.strip()
         else:
-            current_val += "\n" + line
+            if line == "hirez":
+                current_val = "true"
+                current_key = "hirez"
+            elif line == "sdxl":
+                current_val = "true"
+                current_key = "sdxl"
+            else:
+                current_val += "\n" + line
     handle(current_key, current_val)
     return json.dumps(json_master)
