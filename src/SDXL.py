@@ -5,7 +5,7 @@ SDXL_List = {
     "ANUJA": "<lora:stAnuja_XL-v1:1>, stAnuja,1girl,dark green_hair,brown_eyes,bangs,braid,dark-skinned_female,dark_skin,face,long_hair,single_braid,forehead_mark,indian,",
     "AUDREY_IDOL": "<lora:stAudreyIdol_XL-v1:1>, stAudreyIdol,1girl,green_eyes,pink_hair,breasts,choker,gloves,idol,large_breasts,short_hair,white_gloves,straps,pink_dress,cleavage,bare_shoulders,hair flower,frilled dress,",
     "BRAD": "<lora:stBrad_XL-v1:1>, stBrad,1boy,blonde_hair,red_eyes,short_hair,spiked hair,",
-    "BRADGB": "<lora:stBradGB_XL-v2:1>, stBradGB,1girl,collarbone,hair_ornament,hairclip,layered_skirt,polka_dot,polka_dot_shirt,polka_dot_skirt,shirt,short_hair,simple_background,skirt,solo,star_print,blonde hair,red eyes,forehead,hairpin,",
+    "BREE": "<lora:stBradGB_XL-v2:1>, stBradGB,1girl,collarbone,hair_ornament,hairclip,layered_skirt,polka_dot,polka_dot_shirt,polka_dot_skirt,shirt,short_hair,simple_background,skirt,solo,star_print,blonde hair,red eyes,forehead,hairpin,",
     "CARRIE": "<lora:stCarrie_XL-v1:1>, stCarrie,1girl,brown_hair,red_eyes,bangs,eyebrows_visible_through_hair,glasses,long_hair,round_eyewear,semi-rimless_eyewear,twintails,",
     "CASSIE": "<lora:stCassie_XL-v1:1>, stCassie,1girl,blue_eyes,blonde_hair,bangs,eyebrows_visible_through_hair,hair_between_eyes,hair_intakes,long_hair,",
     "CIRCE": "<lora:stCirce_XL-v1:1>, stCirce,1girl,long_fingernails,long_hair,medium_breasts,nail_polish,purple_nails,sharp_fingernails,solo,very_long_fingernails,lamia,(((snake tail))),monster_girl,slit_pupils,angry,fangs,colored_skin,(demon horns),scales,",
@@ -40,6 +40,7 @@ SDXL_List = {
     "TORI": "<lora:stTori_XL-v1-000006:1>, stTori,1girl,folded_ponytail,hair_ornament,hair_over_one_eye,large_breasts,grey_hair,yellow_eyes,",
     "VANESSA": "<lora:stVanessa_XL-v2:0.75>, stVanessa,1girl,red_hair,ponytail,medium_breasts,blue_eyes,chocker,",
     "YUI": "<lora:stYui_XL-v1-000005:1>, stYui,1girl,purple_hair,long_hair,straight_hair,braid,hair ribbon,red ribbon,purple_eyes,huge_breasts,",
+    "YUUNA": "<lora:stYui_XL-v2:1>, stYuuna, 1girl, purple_eyes, blue_eyes, hair_bun, mature_woman, huge_breasts, aged_up, ",
     "ZOEY": "<lora:stZoey_XL-v1-000005:1>,stZoey,1girl,petite,small_breasts,blonde hair,long hair,hair bobbles,single braid,green eyes,energy,",
 
     "ST_SPRITE_STYLE_LOW": "<lora:STXL sprite v3-5:.2>,stsprtstle",
