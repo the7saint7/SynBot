@@ -52,9 +52,15 @@ class SynBotPrompt:
         self.ctx = context
         self.outputChanel = outputChanel
 
+        # Steps and Scheduler
+        self.steps = 20
+        self.sampler_name = "DPM++ 2M"
+        self.scheduler = "Karras"
+
         # Available format string
         self.availableFormatString = ["landscape", "portrait", "panno"]
-        self.availableFormatSize = ["640x360", "360x640", "920x360"]
+        self.availableFormatSizeLow = ["640x360", "360x640", "920x360"]
+        self.availableFormatSize = ["1280x720", "720x1280", "920x360"]
         self.availableFormatSizeXL = ["1280x720", "720x1280", "920x360"]
 
         self.availableSequenceTypes = ["Default", "Growth", "Shrink"]
@@ -600,6 +606,12 @@ class SynBotPrompt:
 
         # if "enableControlNet" in jsonData: self.enableControlNet= jsonData["enableControlNet"] == "true"
 
+        # DISABLE HIREZ!!! (because we are generating 1280x720 images now)
+        self.hirez = False
+        # Also limit batch to 4
+        if self.batchCount > 4:
+            self.batchCount = 4
+
         # Reset batchCount if hirez
         if self.hirez and self.batchCount != 1:
             self.batchCount = 1
@@ -907,7 +919,7 @@ class SynBotPrompt:
                 "initial_noise_multiplier": 1,              # I think this one is for inpaint models only. Leave it at 1 just in case. a simple noise multiplier but since we are setting the denoising_strength it seems unnecessary - recommended to leave it at 1. Once again the API doc is stupid with the 0 default that f*cks up results.
                 "inpainting_fill": 1,                       # Value is int. 0 - 'fill', 1 - 'original', 2 - 'latent noise' and 3 - 'latent nothing'.
                 "resize_mode": 1,                           # Crop and Resize
-                "sampler_name": "DPM++ 2M", 
+                "sampler_name": self.sampler_name, 
                 "batch_size": 1, # No batch for you! 
                 "steps": 50,
                 "seed": self.seedToUse, 
@@ -961,9 +973,9 @@ class SynBotPrompt:
                 payload = {
                     "prompt": self.fixedPrompt,
                     "negative_prompt": self.fixedNegative,
-                    "sampler_name": "DPM++ 2M",
+                    "sampler_name": self.sampler_name,
                     "batch_size": self.batchCount,
-                    "steps": 35,
+                    "steps": self.steps, # 20
                     "cfg_scale": 7,
                     "width": int(format.split("x")[0]),
                     "height": int(format.split("x")[1]),
@@ -1019,7 +1031,7 @@ class SynBotPrompt:
                 "init_images": [ self.userBaseImage ], 
                 "denoising_strength": self.denoise, 
                 "image_cfg_scale": 7, 
-                "sampler_name": "DPM++ 2M", 
+                "sampler_name": self.sampler_name, 
                 "batch_size": self.batchCount, 
                 "steps": 30,
                 "seed": self.seedToUse, 
@@ -1075,7 +1087,7 @@ class SynBotPrompt:
                 "initial_noise_multiplier": 1,              # I think this one is for inpaint models only. Leave it at 1 just in case. a simple noise multiplier but since we are setting the denoising_strength it seems unnecessary - recommended to leave it at 1. Once again the API doc is stupid with the 0 default that f*cks up results.
                 "inpainting_fill": 1,                       # Value is int. 0 - 'fill', 1 - 'original', 2 - 'latent noise' and 3 - 'latent nothing'.
                 "resize_mode": 1,                           # Crop and Resize
-                "sampler_name": "DPM++ 2M", 
+                "sampler_name": self.sampler_name, 
                 "batch_size": self.batchCount, 
                 "steps": 30,
                 "seed": self.seedToUse, 
@@ -1126,8 +1138,8 @@ class SynBotPrompt:
                 "initial_noise_multiplier": 1,              # I think this one is for inpaint models only. Leave it at 1 just in case. a simple noise multiplier but since we are setting the denoising_strength it seems unnecessary - recommended to leave it at 1. Once again the API doc is stupid with the 0 default that f*cks up results.
                 "inpainting_fill": 1,                       # Value is int. 0 - 'fill', 1 - 'original', 2 - 'latent noise' and 3 - 'latent nothing'.
                 "resize_mode": 1,                           # Crop and Resize
-                "sampler_name": "DPM++ 2M", 
-                "sampler_name": "DPM++ 2M", 
+                "sampler_name": self.sampler_name, 
+                "sampler_name": self.sampler_name, 
                 "batch_size": self.batchCount, 
                 "steps": 30,
                 "seed": self.seedToUse, 
@@ -1163,9 +1175,9 @@ class SynBotPrompt:
             payload = {
                 "prompt": self.fixedPrompt,
                 "negative_prompt": self.fixedNegative,
-                "sampler_name": "DPM++ 2M",
+                "sampler_name": self.sampler_name,
                 "batch_size": self.batchCount,
-                "steps": 35,
+                "steps": self.steps,
                 "cfg_scale": 7,
                 "width": pilBaseImage.width / 2,
                 "height": pilBaseImage.height / 2,
@@ -1275,9 +1287,9 @@ class SynBotPrompt:
                     "initial_noise_multiplier": 1,              # I think this one is for inpaint models only. Leave it at 1 just in case. a simple noise multiplier but since we are setting the denoising_strength it seems unnecessary - recommended to leave it at 1. Once again the API doc is stupid with the 0 default that f*cks up results.
                     "inpainting_fill": 1,                       # Value is int. 0 - 'fill', 1 - 'original', 2 - 'latent noise' and 3 - 'latent nothing'.
                     "resize_mode": 1,                           # Crop and Resize
-                    "sampler_name": "DPM++ 2M", 
+                    "sampler_name": self.sampler_name, 
                     "batch_size": 1, # no batch for you!
-                    "steps": 35,
+                    "steps": self.steps,
                     "seed": self.seedToUse, 
                     "cfg_scale": 7, 
                     "width": width, "height": height, 
@@ -1295,9 +1307,9 @@ class SynBotPrompt:
                     "init_images": [ self.userBaseImage ], 
                     "denoising_strength": self.denoise, 
                     "image_cfg_scale": 7, 
-                    "sampler_name": "DPM++ 2M", 
+                    "sampler_name": self.sampler_name, 
                     "batch_size": 1, # no batch for you!
-                    "steps": 35,
+                    "steps": self.steps,
                     "seed": self.seedToUse, 
                     "cfg_scale": 7, 
                     "width": width, "height": height, 
@@ -1679,8 +1691,8 @@ class SynBotPrompt:
             "initial_noise_multiplier": 1,              # I think this one is for inpaint models only. Leave it at 1 just in case. a simple noise multiplier but since we are setting the denoising_strength it seems unnecessary - recommended to leave it at 1. Once again the API doc is stupid with the 0 default that f*cks up results.
             "inpainting_fill": 1,                       # Value is int. 0 - 'fill', 1 - 'original', 2 - 'latent noise' and 3 - 'latent nothing'.
             "resize_mode": 1,                           # Crop and Resize
-            "sampler_name": "DPM++ 2M", 
-            "sampler_name": "DPM++ 2M", 
+            "sampler_name": self.sampler_name, 
+            "sampler_name": self.sampler_name, 
             "batch_size": 1, 
             "steps": 30,
             "seed": self.seedToUse, 
@@ -1900,9 +1912,9 @@ class SynBotPrompt:
             payload = {
                 "prompt": prompt["prompt"],
                 "negative_prompt": self.fixedNegative,
-                "sampler_name": "DPM++ 2M",
+                "sampler_name": self.sampler_name,
                 "batch_size": self.batchCount,
-                "steps": 35,
+                "steps": self.steps,
                 "cfg_scale": 7,
                 "width": 512,
                 "height": 768,
