@@ -693,26 +693,26 @@ class SynBotPrompt:
 
             # In inpaint mode, the second image could be the mask.
             if forInpaint:
-                # if controlnet is present in the request, the LAST image in the attachment is the controlnet
+                # if controlnet is present in the request, the 3rd image in the attachment is the controlnet
                 # if there's only 2 images in the attachment, this means there is no Mask, and thus inpaint shouldn't work because mask is required
 
                 # Second image is the maskedImage
-                ctrlNetImage =self.encode_discord_image(self.ctx.message.attachments[1].url, False) # controlNet?
+                maskImage = self.encode_discord_image(self.ctx.message.attachments[1].url, False) # Mask?
                 # Double check uploaded image dimension, resize if needed
-                if ctrlNetImage.width > 1280 or ctrlNetImage.height > 1280:
-                    print("Uploaded image is too large, resizing...")
-                    ctrlNetImage.thumbnail((1280,1280), Image.Resampling.LANCZOS)
-                    print(f"Resized: {ctrlNetImage.width}, {ctrlNetImage.height}")
+                if maskImage.width > 1280 or maskImage.height > 1280:
+                    print("2nd Uploaded image is too large, resizing...")
+                    maskImage.thumbnail((1280,1280), Image.Resampling.LANCZOS)
+                    print(f"Resized: {maskImage.width}, {maskImage.height}")
                 
                 # Back to base64
-                self.userMaskImage = getBase64FromImage(ctrlNetImage)
+                self.userMaskImage = getBase64FromImage(maskImage)
 
                 if attachmentCount > 2:
                     # Third image is the maskedImage
-                    ctrlNetImage =self.encode_discord_image(self.ctx.message.attachments[2].url, False) # controlNet?
+                    ctrlNetImage = self.encode_discord_image(self.ctx.message.attachments[2].url, False) # controlNet?
                     # Double check uploaded image dimension, resize if needed
                     if ctrlNetImage.width > 1280 or ctrlNetImage.height > 1280:
-                        print("Uploaded image is too large, resizing...")
+                        print("3rd Uploaded image is too large, resizing...")
                         ctrlNetImage.thumbnail((1280,1280), Image.Resampling.LANCZOS)
                         print(f"Resized: {ctrlNetImage.width}, {ctrlNetImage.height}")
                     
@@ -722,7 +722,7 @@ class SynBotPrompt:
             # Every other type
             else:
                 # Second image is the controlnetImage
-                ctrlNetImage =self.encode_discord_image(self.ctx.message.attachments[1].url, False) # controlNet?
+                ctrlNetImage = self.encode_discord_image(self.ctx.message.attachments[1].url, False) # controlNet?
                 # Double check uploaded image dimension, resize if needed
                 if ctrlNetImage.width > 1280 or ctrlNetImage.height > 1280:
                     print("Uploaded image is too large, resizing...")
@@ -1079,7 +1079,7 @@ class SynBotPrompt:
 
             payload = {
                 "init_images": [ self.userBaseImage ], 
-                "mask": self.userMaskImage,          # not really a controlnet, but the mask image
+                "mask": self.userMaskImage,
                 "denoising_strength": self.denoise, 
                 "image_cfg_scale": 7, 
                 "mask_blur": 16, 
@@ -1103,15 +1103,13 @@ class SynBotPrompt:
             # Add ControlNet if requested in the parameters
             if self.hasControlNet():
                 if self.enable_depth:
-                    self.addControlNetToPayload(payload, self.userBaseImage, "depth")
+                    self.addControlNetToPayload(payload, self.userControlNetImage if self.userControlNetImage != None else self.userBaseImage, "depth")
                 if self.enable_openPose:
-                    self.addControlNetToPayload(payload, self.userBaseImage, "openPose")
+                    self.addControlNetToPayload(payload, self.userControlNetImage if self.userControlNetImage != None else self.userBaseImage, "openPose")
                 if self.enable_softEdge:
-                    self.addControlNetToPayload(payload, self.userBaseImage, "softEdge")
-                
-                # In inpaint, controlnet:reference, you NEED a 3rd image, everything else uses the baseimage
+                    self.addControlNetToPayload(payload, self.userControlNetImage if self.userControlNetImage != None else self.userBaseImage, "softEdge")
                 if self.enable_reference:
-                    self.addControlNetToPayload(payload, self.userControlNetImage, "reference")
+                    self.addControlNetToPayload(payload, self.userControlNetImage if self.userControlNetImage != None else self.userBaseImage, "reference")
 
 
         #########################        OUTFITS       #####################################
@@ -1584,7 +1582,7 @@ class SynBotPrompt:
                 {
                     "enabled": True,
                     "input_image": base64Image,
-                    "module": "openpose",
+                    "module": "openpose" if base64Image == self.userBaseImage else "none", # only use a module if the openPose image is the baseImage itself
                     "model": "control_v11p_sd15_openpose [cab727d4]",
                     "weight": .75,  # Apply pose on 75% of the steps
                     "pixel_perfect": True
