@@ -455,6 +455,7 @@ class SynBotPrompt:
 
         ###### BIRTH specific init
         if self.type == "birth":
+            print("BIRTH!")
             
             # Default removeBG True if not specified in prompt parameters (will be overwritten a few lines bellow if specified in parameters)
             self.removeBG = True
@@ -2075,15 +2076,8 @@ def parse_lewdPose(value: str) -> int:
 
 def parse_birthPoses(value: str) -> list[int]:
     # Perform int(str.split().replace('\n','')) on every string
-    return list(
-                map(int,
-                    map(functools.partial(str.replace, old='\n', new=''),
-                        map(str.strip,
-                            value.split(',')
-                            )
-                        )
-                    )
-                )
+    return [int(x) for x in map(str.strip, value.split(','))]
+
 
 def parse_sdxl(value: str) -> str:
     value = value.strip()
