@@ -59,8 +59,8 @@ class SynBotPrompt:
 
         # Available format string
         self.availableFormatString = ["landscape", "portrait", "panno"]
-        self.availableFormatSizeLow = ["640x360", "360x640", "920x360"]
-        self.availableFormatSize = ["768x768", "1280x1280", "920x360"]
+        self.availableFormatSize = ["640x360", "360x640", "920x360"]
+        # self.availableFormatSize = ["768x768", "1280x1280", "920x360"]
         # self.availableFormatSize = ["1280x720", "720x1280", "920x360"]
         self.availableFormatSizeXL = ["1280x720", "720x1280", "920x360"]
 
