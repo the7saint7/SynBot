@@ -2,7 +2,7 @@ from characterai import aiocai
 import asyncio
 
 async def main():
-    char = input('CHAR ID: ') #4soOrjmDJq6CJueemcNbrETREL_t6iAHYfhtyb2gLwU
+    char = input('CHAR ID: ') 
 
     client = aiocai.Client("AIzaSyB5IYetzW-gEwrkd0_gdjb4TWc3-1rT56A&oobCode=V0nhABt5Yw_A9wYSNqDVxfj5bJ8V_Bh3Ht1gHnrHm0sAAAGTYP4FXg")
 
