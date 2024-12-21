@@ -57,3 +57,9 @@ py SynBot.py dev
 ```
 
 That should be all!
+
+# CharacterAI integration
+## Install characterAI API manager (non official)
+```
+pip install git+https://github.com/kramcat/CharacterAI.git
+```

@@ -48,7 +48,8 @@ class SynBotManager(commands.Bot):
         await self.wait_until_ready()  # wait until the bot logs in
 
 class SynBotPrompt:
-    def __init__(self, context, outputChanel, type=None):
+    def __init__(self, context, outputChanel, type=None, env_dev=False):
+        self.env_dev = env_dev
         self.ctx = context
         self.outputChanel = outputChanel
 
@@ -130,7 +131,7 @@ class SynBotPrompt:
         message = str(self.ctx.message.content)
 
         # Remove all possible prefixes
-        prefixes = ["!Syn-txt2img", "!Syn-img2img", "!Syn-inpaint", "!Syn-outfits", "!Syn2-txt2img", "!Syn2-img2img", "!Syn2-inpaint", "!Syn2-outfits", "!Syn-birth", "!Syn2-birth", "!Syn-expressions", "!Syn2-expressions", "!Syn-removeBG", "!Syn2-removeBG", "!Syn-superHiRez", "!Syn2-superHiRez", "!Syn-mask", "!Syn2-mask", "!Syn-sequence", "!Syn2-sequence"]
+        prefixes = ["!Syn-txt2img", "!Syn-img2img", "!Syn-inpaint", "!Syn-outfits", "!Syn2-txt2img", "!Syn2-img2img", "!Syn2-inpaint", "!Syn2-outfits", "!Syn-birth", "!Syn2-birth", "!Syn-expressions", "!Syn2-expressions", "!Syn-removeBG", "!Syn2-removeBG", "!Syn-superHiRez", "!Syn2-superHiRez", "!Syn-mask", "!Syn2-mask", "!Syn-sequence", "!Syn2-sequence", "!Syn-sprite", "!Syn2-sprite"]
         for prefix in prefixes:
             message = message.removeprefix(prefix)
         
@@ -529,6 +530,16 @@ class SynBotPrompt:
 
 
         ###### END BIRTH specific init
+
+        ###### SPRITE specific init
+        # Sprite command should containt, a prompt and a negative prompt. 
+        # It will insert some default prompt tags with the user provided prompt
+        # It will also use SDXL AMM checkpoint
+        # No controlNet support
+        if self.type == "sprite":
+            print("SPRITE!")
+            self.sdxl = True # So the rest of the logic replace the prompt tags with the right tags (sdxl vs anylora)
+        ###### END SPRITE specific init
             
         ###### EXPRESSIONS specific init
         if self.type == "expressions":
@@ -1406,6 +1417,27 @@ class SynBotPrompt:
             await self.createSequence(prompts)
             return
 
+        #########################        SPRITE         #####################################
+        elif self.type == "sprite":
+            
+            self.checkpoint = "d48c2391e0" # Force checkpoint to aamXLAnimeMix_v10
+
+            # Where do we send the request?
+            apiPath = "/sdapi/v1/txt2img"
+
+            payload = {
+                "prompt": "<lora:STXL sprite v3-5:1> ,stsprtstle, (((cowboy_shot))), standing, simple_background, grey_background, score_9,score_8_up,score_7_up,score_6_up,score_5_up,score_4_up,source_anime, " + self.fixedPrompt,
+                "negative_prompt": "full_body, out_of_frame, " + self.fixedNegative,
+                "sampler_name": "Euler a",
+                "scheduler": "Karras",
+                "batch_size": 1,
+                "steps": 20,
+                "cfg_scale": 7,
+                "width": 720,
+                "height": 1280,
+                "restore_faces": False
+            }
+            
 
         ############################# CHECKPOINT #########################################
         # Override settings for custom checkpoint
@@ -1418,7 +1450,9 @@ class SynBotPrompt:
         ######################### END PAYLOAD BUILDING #####################################
         
         # print(payload)
-        # self.printPayload(payload, toFile=True, shorten=False)
+        if self.env_dev:
+            print("printing prompt to file...")
+            self.printPayload(payload, toFile=True, shorten=False)
 
         # Sending API call request
         print(f"Sending request to {self.URL}{apiPath} ...")

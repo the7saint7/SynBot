@@ -34,9 +34,9 @@ def getAPIURL():
 
 # Discord Bot
 if syn2:
-    bot = SynBotManager(command_prefix="!Syn2-", intents=discord.Intents.all())
+    bot = SynBotManager(command_prefix="!Syn2-", intents=discord.Intents.all(), env_dev=env_dev)
 else:
-    bot = SynBotManager(command_prefix="!Syn-", intents=discord.Intents.all())
+    bot = SynBotManager(command_prefix="!Syn-", intents=discord.Intents.all(), env_dev=env_dev)
 
 @bot.event
 async def on_ready():
@@ -144,6 +144,10 @@ async def mask(ctx):
 @bot.command()
 async def sequence(ctx):
     await executePrompt(ctx, type="sequence")
+
+@bot.command()
+async def sprite(ctx):
+    await executePrompt(ctx, type="sprite")
 
 async def executePrompt(ctx, type=None):
     # Select proper channel to handle requests
