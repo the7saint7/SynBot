@@ -594,6 +594,8 @@ class SynBotPrompt:
             ###################### END LOADING USER SUBMITTED BASE AND MASK IMAGE
         ###### END EXPRESSIONS specific init
 
+        print(f"command: {jsonData}")
+
         # Optional parameters
         if "negative" in jsonData: self.userNegative = jsonData["negative"]
         if "hirez" in jsonData: self.hirez = jsonData["hirez"] == "true"
@@ -604,10 +606,11 @@ class SynBotPrompt:
         if "removeBG" in jsonData: self.removeBG = jsonData["removeBG"] == "true"
         if "lewdPose" in jsonData: self.lewdPoseNumber = jsonData["lewdPose"]
         if "sdxl" in jsonData: self.sdxl = jsonData["sdxl"] == "true"
-        if "checkpoint" in jsonData: 
-            if self.sdxl:
-                print("Using SDXL checkpoint")
-                self.checkpoint = "517caf19d7"
+
+        if self.sdxl:
+            print("Using SDXL checkpoint")
+            self.checkpoint = "517caf19d7"
+        elif "checkpoint" in jsonData: 
             if jsonData["checkpoint"] == "cartoon":
                 self.checkpoint = "722141adbc"
             elif jsonData["checkpoint"] == "hentai":
@@ -616,6 +619,13 @@ class SynBotPrompt:
                 self.checkpoint = "ed989d673d"
             elif jsonData["checkpoint"] == "pang":
                 self.checkpoint = "7ed3d88fd8"
+            elif jsonData["checkpoint"] == "sdxl":
+                self.sdxl = True
+                print("Using SDXL checkpoint")
+                self.checkpoint = "517caf19d7"
+
+        print(f"SDXL: {self.sdxl}")
+
 
         # if "enableControlNet" in jsonData: self.enableControlNet= jsonData["enableControlNet"] == "true"
 
@@ -1420,7 +1430,7 @@ class SynBotPrompt:
         #########################        SPRITE         #####################################
         elif self.type == "sprite":
             
-            self.checkpoint = "d48c2391e0" # Force checkpoint to aamXLAnimeMix_v10
+            self.checkpoint = "517caf19d7" #"d48c2391e0" # Force checkpoint to aamXLAnimeMix_v10
 
             # Where do we send the request?
             apiPath = "/sdapi/v1/txt2img"
