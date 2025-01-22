@@ -122,7 +122,7 @@ class SynBotPrompt:
 
         # Checkpoint
         # "cartoon" checkpoint: https://civitai.com/models/78306/cartoon-style
-        self.checkpoint = None # Default AnyLora
+        self.checkpoint = "ad1150a839" # Default AnyLora
 
         # Use SDXL?
         self.sdxl = False # Default nope!
@@ -631,6 +631,7 @@ class SynBotPrompt:
 
         # DISABLE HIREZ!!! (because we are generating 1280x720 images now)
         self.hirez = False
+
         # Also limit batch to 4
         if self.batchCount > 4:
             self.batchCount = 4
