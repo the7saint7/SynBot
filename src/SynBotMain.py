@@ -1467,7 +1467,8 @@ class SynBotPrompt:
 
         # Sending API call request
         print(f"Sending request to {self.URL}{apiPath} ...")
-        async with aiohttp.ClientSession(loop=self.ctx.bot.loop) as session:
+        session_timeout =   aiohttp.ClientTimeout(total=10*60,sock_connect=10*60,sock_read=10*60)
+        async with aiohttp.ClientSession(loop=self.ctx.bot.loop, timeout=session_timeout) as session:
             async with session.post(url=f'{self.URL}{apiPath}', json=payload)as response:
                 print("Request returned: " + str(response.status))
                 if response.status == 200:
