@@ -127,6 +127,9 @@ class SynBotPrompt:
         # Use SDXL?
         self.sdxl = False # Default nope!
 
+        # Use ADetailer?
+        self.adetailer = False # Default nope!
+
         # The message that was sent
         message = str(self.ctx.message.content)
 
@@ -606,6 +609,7 @@ class SynBotPrompt:
         if "removeBG" in jsonData: self.removeBG = jsonData["removeBG"] == "true"
         if "lewdPose" in jsonData: self.lewdPoseNumber = jsonData["lewdPose"]
         if "sdxl" in jsonData: self.sdxl = jsonData["sdxl"] == "true"
+        if "adetailer" in jsonData: self.adetailer = jsonData["adetailer"] == "true"
 
         if self.sdxl:
             print("Using SDXL checkpoint")
@@ -625,6 +629,7 @@ class SynBotPrompt:
                 self.checkpoint = "517caf19d7"
 
         print(f"SDXL: {self.sdxl}")
+        print(f"ADetailer: {self.adetailer}")
 
 
         # if "enableControlNet" in jsonData: self.enableControlNet= jsonData["enableControlNet"] == "true"
@@ -1042,6 +1047,10 @@ class SynBotPrompt:
                     self.addControlNetToPayload(payload, self.userControlNetImage, "softEdge", preProcess=False)
                 if self.enable_reference:
                     self.addControlNetToPayload(payload, self.userControlNetImage, "reference")
+            
+            # Add ADetailer if requested
+            if self.adetailer:
+                self.addADetailerToPayload(payload)
 
         #########################         IMG2IMG        #####################################
         elif self.type == "img2img":
@@ -1610,6 +1619,64 @@ class SynBotPrompt:
         else:
             print(payloadCopy)
 
+    def addADetailerToPayload(self, payload):
+        if "alwayson_scripts" not in payload:
+            payload["alwayson_scripts"] = {"ADetailer": {
+                "args": []
+                }
+            }
+        elif "ADetailer" not in payload["alwayson_scripts"]:
+            payload["alwayson_scripts"]["ADetailer"] = {
+                "args": []
+                }
+            
+        payload["alwayson_scripts"]["ADetailer"]["args"] = [
+            True,
+            False,
+            {
+                "ad_model": "face_yolov8n.pt",
+                "ad_model_classes": "",
+                "ad_tab_enable": True,
+                "ad_prompt": "",
+                "ad_negative_prompt": "",
+                "ad_confidence": 0.3,
+                "ad_mask_filter_method": "Area",
+                "ad_mask_k": 0,
+                "ad_mask_min_ratio": 0.0,
+                "ad_mask_max_ratio": 1.0,
+                "ad_dilate_erode": 4,
+                "ad_x_offset": 0,
+                "ad_y_offset": 0,
+                "ad_mask_merge_invert": "None",
+                "ad_mask_blur": 4,
+                "ad_denoising_strength": 0.4,
+                "ad_inpaint_only_masked": True,
+                "ad_inpaint_only_masked_padding": 32,
+                "ad_use_inpaint_width_height": False,
+                "ad_inpaint_width": 768,
+                "ad_inpaint_height": 768,
+                "ad_use_steps": False,
+                "ad_steps": 28,
+                "ad_use_cfg_scale": False,
+                "ad_cfg_scale": 7.0,
+                "ad_use_checkpoint": False,
+                "ad_use_vae": False,
+                "ad_use_sampler": False,
+                "ad_sampler": "DPM++ 2M Karras",
+                "ad_scheduler": "Use same scheduler",
+                "ad_use_noise_multiplier": False,
+                "ad_noise_multiplier": 1.0,
+                "ad_use_clip_skip": False,
+                "ad_clip_skip": 1,
+                "ad_restore_face": False,
+                "ad_controlnet_model": "None",
+                "ad_controlnet_module": "None",
+                "ad_controlnet_weight": 1.0,
+                "ad_controlnet_guidance_start": 0.0,
+                "ad_controlnet_guidance_end": 1.0
+                }
+            ]
+
 
     def addControlNetToPayload(self, payload, base64Image, module, preProcess=True):
 
@@ -1619,6 +1686,11 @@ class SynBotPrompt:
                 "args": []
                 }
             }
+        elif "controlnet" not in payload["alwayson_scripts"]:
+            payload["alwayson_scripts"]["controlnet"] = {
+                "args": []
+                }
+
 
         script_payload = payload["alwayson_scripts"]["controlnet"]["args"]
 
@@ -2125,7 +2197,14 @@ def parse_birthPoses(value: str) -> list[int]:
 
 def parse_sdxl(value: str) -> str:
     value = value.strip()
-    print(f"VALUE: {value}")
+    # print(f"VALUE: {value}")
+    if not value:
+        return "false"
+    return value
+
+def parse_adetailer(value: str) -> str:
+    value = value.strip()
+    # print(f"VALUE: {value}")
     if not value:
         return "false"
     return value
@@ -2158,7 +2237,10 @@ def parse(message: str) -> str:
             elif line == "sdxl":
                 current_val = "true"
                 current_key = "sdxl"
+            elif line == "adetailer":
+                current_val = "true"
+                current_key = "adetailer"
             else:
                 current_val += "\n" + line
-    handle(current_key, current_val)
+        handle(current_key, current_val)
     return json.dumps(json_master)
