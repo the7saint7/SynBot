@@ -630,12 +630,14 @@ class SynBotPrompt:
 
         print(f"SDXL: {self.sdxl}")
         print(f"ADetailer: {self.adetailer}")
+        print(f"HiRez: {self.hirez}")
 
 
         # if "enableControlNet" in jsonData: self.enableControlNet= jsonData["enableControlNet"] == "true"
 
         # DISABLE HIREZ!!! (because we are generating 1280x720 images now)
-        self.hirez = False
+        if self.sdxl:
+            self.hirez = False
 
         # Also limit batch to 4
         if self.batchCount > 4:
