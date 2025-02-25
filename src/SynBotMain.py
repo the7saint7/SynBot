@@ -1572,7 +1572,7 @@ class SynBotPrompt:
         prompt = str(self.ctx.message.content)
         if not "seed" in prompt:
             print("Seed added to prompt")
-            prompt = prompt.replace(" {", " {\"seed\":" + str(seed) + ", ")
+            prompt = prompt + f"\nseed:{seed}"
         else:
             print("Seed already in prompt")
         
@@ -1817,7 +1817,7 @@ class SynBotPrompt:
             "steps": 30,
             "seed": self.seedToUse, 
             "cfg_scale": 7, 
-            "width": width * 1.5, "height": height * 1.5, 
+            "width": width * 2.0, "height": height * 2.0, 
             "prompt": self.fixedPrompt, 
             "negative_prompt": self.fixedNegative, 
             "sampler_index": "DPM++ 2M"
