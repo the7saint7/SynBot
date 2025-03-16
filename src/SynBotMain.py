@@ -4,6 +4,7 @@ import io
 import cv2
 import math
 import json
+import uuid
 import base64
 import random
 import aiohttp
@@ -18,10 +19,17 @@ from LORA_Helper import LORA_List
 from discord.ext import tasks, commands
 from charactersList import charactersLORA
 from SDXL import SDXL_List 
+from ComfyLoras import ComfyList
 from ssd_anime_face_detect import ssd_anime_face_detect_from_cv2_Image
 from openPoses import getPose, getLewdPose, getImageAtPath, getBase64FromImage, getImageFormBase64, getBase64StringFromOpenCV, getSequencePose
+import websocket #NOTE: websocket-client (https://github.com/websocket-client/websocket-client)
+import urllib.request
+import urllib.parse
 
 load_dotenv()
+
+server_address = os.getenv("SD_API_COMFY")
+client_id = str(uuid.uuid4())
 
 class SynBotManager(commands.Bot):
     def __init__(self, *args, **kwargs):
@@ -283,7 +291,7 @@ class SynBotPrompt:
                     return
             
         ###### TXT2IMG specific init
-        elif self.type == "txt2img":
+        elif self.type == "txt2img" or self.type == "comfy":
             if "format" in jsonData:
                 formatStr = jsonData["format"]
 
@@ -299,7 +307,7 @@ class SynBotPrompt:
                 return
         
             # Controlnet double-check
-            if self.hasControlNet():
+            if self.hasControlNet() and self.type != "comfy":
                 attachmentCount = len(self.ctx.message.attachments)
                 if attachmentCount == 0:
                     self.errorMsg = f"{self.ctx.author.mention} Missing a Image attachment for **controlNet** parameter"
@@ -314,7 +322,6 @@ class SynBotPrompt:
                     self.isValid = False
                     return
                 ###################### END LOADING USER SUBMITTED IMAGE
-
 
             self.formatIndex = self.availableFormatString.index(formatStr)
 
@@ -539,8 +546,7 @@ class SynBotPrompt:
         # It will insert some default prompt tags with the user provided prompt
         # It will also use SDXL AMM checkpoint
         # No controlNet support
-        if self.type == "sprite":
-            print("SPRITE!")
+        if self.type == "sprite" or self.type == "comfy":
             self.sdxl = True # So the rest of the logic replace the prompt tags with the right tags (sdxl vs anylora)
         ###### END SPRITE specific init
             
@@ -870,7 +876,8 @@ class SynBotPrompt:
                     forumTag = tag
                     break
 
-            thread = await self.outputChanel.create_thread(
+            # Post thread
+            await self.outputChanel.create_thread(
                 name=f"Removed Background by {self.ctx.message.author.display_name}", 
                 content=f"{self.ctx.author.mention} removed a background from the image here: {self.ctx.message.jump_url}", 
                 file=discordFile,
@@ -1460,6 +1467,86 @@ class SynBotPrompt:
                 "restore_faces": False
             }
             
+        #########################        COMFY         #####################################
+        elif self.type == "comfy":
+
+            # Things are going to work differently here.
+            # I need to call a totally different API.
+
+            # 1) Load the workflow json
+            with open('comfyui.json', encoding='utf-8') as workflow_data:
+                workflow = json.load(workflow_data)
+                workflow_data.close()
+                # print(workflow)
+            
+            # 2) Change the prompt
+            # PORTRAIT vs LANDSCAPE
+            if self.availableFormatSizeXL[self.formatIndex] == "1280x720":
+                workflow["5"]["inputs"]["width"] = 1280
+                workflow["5"]["inputs"]["height"] = 720
+            else:
+                workflow["5"]["inputs"]["width"] = 720
+                workflow["5"]["inputs"]["height"] = 1280
+            
+            # PROMPT
+            # We need to re-fix the user prompt and add those loras to the Lora list node instead
+            prompt = self.userPrompt
+            for key in ComfyList.keys():
+                if key in prompt:
+                    print("Found: " + key)
+                    lora_info = ComfyList[key].split("|")
+                    workflow["58"]["inputs"][lora_info[0]]["on"] = True 
+                    prompt = prompt.replace(key, lora_info[1])
+
+            
+            # The prompt the user typed, with fixed tags for lora
+            workflow["65"]["inputs"]["text_g"] = prompt
+            workflow["65"]["inputs"]["text_l"] = prompt
+            
+            # print(workflow)
+
+            # 3) Edit the LORAs
+
+            # 4) Send request to API
+            print(f"Sending request to {server_address} ...")
+            ws = websocket.WebSocket()
+            ws.connect("ws://{}/ws?clientId={}".format(server_address, client_id))
+            images = self.get_images(ws, workflow)
+            ws.close() # for in case this example is used in an environment where it will be repeatedly called, like in a Gradio app. otherwise, you'll randomly receive connection timeout
+            # print(images)
+
+            discordFiles = []
+            for node_id in images:
+                for image_data in images[node_id]:
+                    print("loop")
+                    # Image is in base64, convert it to a discord.File
+                    bytes = io.BytesIO(image_data)
+                    bytes.seek(0)
+                    discordFile = discord.File(bytes, filename="" + str(self.ctx.message.author) + ".png")
+                    discordFiles.append(discordFile)
+            
+            print("FILES: " + str(len(discordFiles)))
+            
+            # get available tags
+            tags = self.outputChanel.available_tags
+
+            # Prepare the tag to give to the new thread
+            forumTag = None
+            for tag in tags:
+                if tag.name.lower() == self.type.lower():
+                    forumTag = tag
+                    break
+
+            # Post thread
+            await self.outputChanel.create_thread(
+                name=f"{self.getTitle()} by {self.ctx.message.author.display_name}", 
+                content=f"{self.ctx.author.mention} generated this ComfyUI image with prompt: {self.ctx.message.jump_url}\n```{self.getPromptWithSeed(-1)}```", 
+                files=discordFiles,
+                applied_tags=[forumTag]
+            )
+            
+            return
+                
 
         ############################# CHECKPOINT #########################################
         # Override settings for custom checkpoint
@@ -2139,6 +2226,52 @@ class SynBotPrompt:
             promptText = prompt["prompt"]
             await thread.thread.send(f"```{promptText}```", file=discordFiles[prompts.index(prompt) +1])
 
+    ################ COMFY UI functions
+    def queue_prompt(self, prompt):
+        p = {"prompt": prompt, "client_id": client_id}
+        data = json.dumps(p).encode('utf-8')
+        req =  urllib.request.Request("http://{}/prompt".format(server_address), data=data)
+        return json.loads(urllib.request.urlopen(req).read())
+
+    def get_image(self, filename, subfolder, folder_type):
+        data = {"filename": filename, "subfolder": subfolder, "type": folder_type}
+        url_values = urllib.parse.urlencode(data)
+        with urllib.request.urlopen("http://{}/view?{}".format(server_address, url_values)) as response:
+            return response.read()
+
+    def get_history(self, prompt_id):
+        with urllib.request.urlopen("http://{}/history/{}".format(server_address, prompt_id)) as response:
+            return json.loads(response.read())
+
+    def get_images(self, ws, prompt):
+        prompt_id = self.queue_prompt(prompt)['prompt_id']
+        output_images = {}
+        while True:
+            out = ws.recv()
+            # print(out)
+            if isinstance(out, str):
+                message = json.loads(out)
+                if message['type'] == 'executing':
+                    data = message['data']
+                    if data['node'] is None and data['prompt_id'] == prompt_id:
+                        break #Execution is done
+            else:
+                # If you want to be able to decode the binary stream for latent previews, here is how you can do it:
+                # bytesIO = BytesIO(out[8:])
+                # preview_image = Image.open(bytesIO) # This is your preview in PIL image format, store it in a global
+                continue #previews are binary data
+
+        history = self.get_history(prompt_id)[prompt_id]
+        for node_id in history['outputs']:
+            node_output = history['outputs'][node_id]
+            images_output = []
+            if 'images' in node_output:
+                for image in node_output['images']:
+                    image_data = self.get_image(image['filename'], image['subfolder'], image['type'])
+                    images_output.append(image_data)
+            output_images[node_id] = images_output
+
+        return output_images
 
 def parse_shortcut_str(value:str) -> str:
     return value.strip().replace('\n', '')
@@ -2246,3 +2379,5 @@ def parse(message: str) -> str:
                 current_val += "\n" + line
         handle(current_key, current_val)
     return json.dumps(json_master)
+
+

@@ -92,6 +92,8 @@ async def addToQueue(ctx, newPrompt: SynBotPrompt):
         await ctx.send(f"**Creating new outfit** for {newPrompt.outfitsCharacter} on **{synBot}** , requested by {ctx.message.author.display_name}.")
     elif newPrompt.type == "birth":
         await ctx.send(f"**Creating new character** for {ctx.message.author.display_name}, on **{synBot}**.")
+    elif newPrompt.type == "comfy":
+        await ctx.send(f"Queuing request from {ctx.message.author.display_name} , in " + newPrompt.getFormatString() + " format, on " + synBot + ".")
     else:
         await ctx.send(f"Queuing request from {ctx.message.author.display_name}, on " + synBot + ".")
     ################ END resume ################################
@@ -148,6 +150,12 @@ async def sequence(ctx):
 @bot.command()
 async def sprite(ctx):
     await executePrompt(ctx, type="sprite")
+
+# CUMFYUI
+@bot.command()
+async def comfy(ctx):
+    await executePrompt(ctx, type="comfy")
+
 
 async def executePrompt(ctx, type=None):
     # Select proper channel to handle requests
