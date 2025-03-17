@@ -10,41 +10,13 @@
   },
   "5": {
     "inputs": {
-      "width": 1280,
-      "height": 720,
+      "width": 720,
+      "height": 1280,
       "batch_size": 1
     },
     "class_type": "EmptyLatentImage",
     "_meta": {
       "title": "Empty Latent Image"
-    }
-  },
-  "8": {
-    "inputs": {
-      "samples": [
-        "76",
-        0
-      ],
-      "vae": [
-        "4",
-        2
-      ]
-    },
-    "class_type": "VAEDecode",
-    "_meta": {
-      "title": "VAE Decode"
-    }
-  },
-  "29": {
-    "inputs": {
-      "images": [
-        "78",
-        0
-      ]
-    },
-    "class_type": "PreviewImage",
-    "_meta": {
-      "title": "Preview Image"
     }
   },
   "30": {
@@ -133,30 +105,6 @@
       "title": "InpaintModelConditioning"
     }
   },
-  "47": {
-    "inputs": {
-      "mask": [
-        "44",
-        0
-      ]
-    },
-    "class_type": "MaskToImage",
-    "_meta": {
-      "title": "Convert Mask to Image"
-    }
-  },
-  "48": {
-    "inputs": {
-      "images": [
-        "47",
-        0
-      ]
-    },
-    "class_type": "PreviewImage",
-    "_meta": {
-      "title": "Preview Image"
-    }
-  },
   "49": {
     "inputs": {
       "seed": 69,
@@ -164,7 +112,7 @@
       "cfg": 5,
       "sampler_name": "euler_ancestral",
       "scheduler": "karras",
-      "denoise": 0.4,
+      "denoise": 0.5,
       "model": [
         "58",
         0
@@ -244,12 +192,12 @@
       "lora_1": {
         "on": false,
         "lora": "STXL sprite v3-5.safetensors",
-        "strength": 0.8
+        "strength": 0.2
       },
       "lora_2": {
         "on": false,
         "lora": "stXL\\stAbby_XL-v1.safetensors",
-        "strength": 0.75
+        "strength": 0.7
       },
       "lora_3": {
         "on": false,
@@ -274,7 +222,7 @@
       "lora_7": {
         "on": false,
         "lora": "stXL\\stBradGB_XL-v2.safetensors",
-        "strength": 1.2
+        "strength": 0.6
       },
       "lora_8": {
         "on": false,
@@ -314,7 +262,7 @@
       "lora_15": {
         "on": false,
         "lora": "stXL\\stEric_XL-v1-000005.safetensors",
-        "strength": 1
+        "strength": 0.75
       },
       "lora_16": {
         "on": false,
@@ -347,9 +295,9 @@
         "strength": 0.75
       },
       "lora_22": {
-        "on": false,
+        "on": true,
         "lora": "stXL\\stKatrina_XL.safetensors",
-        "strength": 0.7
+        "strength": 0.75
       },
       "lora_23": {
         "on": false,
@@ -483,7 +431,7 @@
       },
       "lora_49": {
         "on": false,
-        "lora": "stXL_toFix\\stBrad_XL-v1-000005.safetensors",
+        "lora": "stXL\\stBradGB_XL-v2.safetensors",
         "strength": 0.75
       },
       "➕ Add Lora": "",
@@ -509,8 +457,8 @@
       "crop_h": 0,
       "target_width": 1024,
       "target_height": 1024,
-      "text_g": "2girls, yuri, nude, pussy, from_behind, fingering_from_behind, hip_focus, pussy_juice, kneeling, spread_legs, (lower_body:1.25), short_hair, 1boy, deepthroat, threesome\nscore_9,score_8_up,score_7_up,score_6_up,score_5_up,score_4_up,source_anime, flat_colors",
-      "text_l": "2girls, yuri, nude, pussy, from_behind, fingering_from_behind, hip_focus, pussy_juice, kneeling, spread_legs, (lower_body:1.25), short_hair, 1boy, deepthroat, threesome\nscore_9,score_8_up,score_7_up,score_6_up,score_5_up,score_4_up,source_anime, flat_colors",
+      "text_g": "stKatrina,1girl,orange_hair,green_eyes,medium_breasts, beach, swimsuit, bikini, full_body, from_side, hand_on_hip, white_bikini, score_9,score_8_up,score_7_up,score_6_up,score_5_up,score_4_up,source_anime, flat_colors",
+      "text_l": "stKatrina,1girl,orange_hair,green_eyes,medium_breasts, beach, swimsuit, bikini, full_body, from_side, hand_on_hip, white_bikini, score_9,score_8_up,score_7_up,score_6_up,score_5_up,score_4_up,source_anime, flat_colors",
       "clip": [
         "58",
         1
@@ -529,8 +477,8 @@
       "crop_h": 0,
       "target_width": 1024,
       "target_height": 1024,
-      "text_g": "fewer digits, extra body parts, censored, collage, logo, border, badhandv4, paintings, sketches, fingers, (worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality, ((monochrome)), ((grayscale)), skin spots, acnes, skin blemishes, age spot, (outdoor:1.6), backlight,(ugly:1.331), (duplicate:1.331), (morbid:1.21), (mutilated:1.21), (tranny:1.331), mutated hands, (poorly drawn hands:1.5), blurry, (bad anatomy:1.21), (bad proportions:1.331), extra limbs, (disfigured:1.331), lowers, bad hands, missing fingers, extra digit, negative_hand-, out_of_frame, (blue_skirt:1.25), bow_tie, bow, 2boys",
-      "text_l": "fewer digits, extra body parts, censored, collage, logo, border, badhandv4, paintings, sketches, fingers, (worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality, ((monochrome)), ((grayscale)), skin spots, acnes, skin blemishes, age spot, (outdoor:1.6), backlight,(ugly:1.331), (duplicate:1.331), (morbid:1.21), (mutilated:1.21), (tranny:1.331), mutated hands, (poorly drawn hands:1.5), blurry, (bad anatomy:1.21), (bad proportions:1.331), extra limbs, (disfigured:1.331), lowers, bad hands, missing fingers, extra digit, negative_hand-, out_of_frame, (blue_skirt:1.25), bow_tie, bow, 2boys",
+      "text_g": "fewer digits, extra body parts, censored, collage, logo, border, badhandv4, paintings, sketches, fingers, (worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality, ((monochrome)), ((grayscale)), skin spots, acnes, skin blemishes, age spot, (outdoor:1.6), backlight,(ugly:1.331), (duplicate:1.331), (morbid:1.21), (mutilated:1.21), (tranny:1.331), mutated hands, (poorly drawn hands:1.5), blurry, (bad anatomy:1.21), (bad proportions:1.331), extra limbs, (disfigured:1.331), lowers, bad hands, missing fingers, extra digit, negative_hand-, out_of_frame",
+      "text_l": "fewer digits, extra body parts, censored, collage, logo, border, badhandv4, paintings, sketches, fingers, (worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality, ((monochrome)), ((grayscale)), skin spots, acnes, skin blemishes, age spot, (outdoor:1.6), backlight,(ugly:1.331), (duplicate:1.331), (morbid:1.21), (mutilated:1.21), (tranny:1.331), mutated hands, (poorly drawn hands:1.5), blurry, (bad anatomy:1.21), (bad proportions:1.331), extra limbs, (disfigured:1.331), lowers, bad hands, missing fingers, extra digit, negative_hand-, out_of_frame",
       "clip": [
         "58",
         1
@@ -553,7 +501,7 @@
   "76": {
     "inputs": {
       "add_noise": "enable",
-      "noise_seed": 811881860461771,
+      "noise_seed": 811881860461595,
       "steps": 25,
       "cfg": 8,
       "sampler_name": "euler_ancestral",
@@ -586,7 +534,7 @@
   "77": {
     "inputs": {
       "add_noise": "enable",
-      "noise_seed": 503715732692868,
+      "noise_seed": 871022478258426,
       "steps": 25,
       "cfg": 8,
       "sampler_name": "euler_ancestral",
@@ -632,218 +580,12 @@
       "title": "VAE Decode"
     }
   },
-  "82": {
-    "inputs": {
-      "images": [
-        "8",
-        0
-      ]
-    },
-    "class_type": "PreviewImage",
-    "_meta": {
-      "title": "Preview Image"
-    }
-  },
-  "89": {
-    "inputs": {
-      "guide_size": 512,
-      "guide_size_for": true,
-      "max_size": 768,
-      "seed": 729563971412590,
-      "steps": 20,
-      "cfg": 8,
-      "sampler_name": "euler",
-      "scheduler": "normal",
-      "denoise": 0.5,
-      "feather": 5,
-      "noise_mask": true,
-      "force_inpaint": true,
-      "bbox_threshold": 0.5,
-      "bbox_dilation": 10,
-      "bbox_crop_factor": 3,
-      "sam_detection_hint": "center-1",
-      "sam_dilation": 0,
-      "sam_threshold": 0.93,
-      "sam_bbox_expansion": 0,
-      "sam_mask_hint_threshold": 0.7,
-      "sam_mask_hint_use_negative": "False",
-      "drop_size": 10,
-      "wildcard": "",
-      "cycle": 1,
-      "inpaint_model": false,
-      "noise_mask_feather": 20,
-      "tiled_encode": false,
-      "tiled_decode": false,
-      "image": [
-        "93",
-        0
-      ],
-      "model": [
-        "58",
-        0
-      ],
-      "clip": [
-        "58",
-        1
-      ],
-      "vae": [
-        "4",
-        2
-      ],
-      "positive": [
-        "65",
-        0
-      ],
-      "negative": [
-        "74",
-        0
-      ],
-      "bbox_detector": [
-        "90",
-        0
-      ],
-      "sam_model_opt": [
-        "92",
-        0
-      ]
-    },
-    "class_type": "FaceDetailer",
-    "_meta": {
-      "title": "FaceDetailer"
-    }
-  },
-  "90": {
-    "inputs": {
-      "model_name": "bbox/hand_yolov8n.pt"
-    },
-    "class_type": "UltralyticsDetectorProvider",
-    "_meta": {
-      "title": "UltralyticsDetectorProvider"
-    }
-  },
-  "91": {
-    "inputs": {
-      "model_name": "bbox/face_yolov8m.pt"
-    },
-    "class_type": "UltralyticsDetectorProvider",
-    "_meta": {
-      "title": "UltralyticsDetectorProvider"
-    }
-  },
-  "92": {
-    "inputs": {
-      "model_name": "sam_vit_h_4b8939.pth",
-      "device_mode": "AUTO"
-    },
-    "class_type": "SAMLoader",
-    "_meta": {
-      "title": "SAMLoader (Impact)"
-    }
-  },
-  "93": {
-    "inputs": {
-      "guide_size": 512,
-      "guide_size_for": true,
-      "max_size": 900,
-      "seed": 692676526647969,
-      "steps": 20,
-      "cfg": 8,
-      "sampler_name": "euler_ancestral",
-      "scheduler": "karras",
-      "denoise": 0.6,
-      "feather": 5,
-      "noise_mask": true,
-      "force_inpaint": true,
-      "bbox_threshold": 0.5,
-      "bbox_dilation": 10,
-      "bbox_crop_factor": 3,
-      "sam_detection_hint": "center-1",
-      "sam_dilation": 0,
-      "sam_threshold": 0.93,
-      "sam_bbox_expansion": 0,
-      "sam_mask_hint_threshold": 0.7,
-      "sam_mask_hint_use_negative": "False",
-      "drop_size": 10,
-      "wildcard": "",
-      "cycle": 1,
-      "inpaint_model": false,
-      "noise_mask_feather": 20,
-      "tiled_encode": false,
-      "tiled_decode": false,
-      "image": [
-        "52",
-        0
-      ],
-      "model": [
-        "58",
-        0
-      ],
-      "clip": [
-        "58",
-        1
-      ],
-      "vae": [
-        "4",
-        2
-      ],
-      "positive": [
-        "65",
-        0
-      ],
-      "negative": [
-        "74",
-        0
-      ],
-      "bbox_detector": [
-        "91",
-        0
-      ],
-      "sam_model_opt": [
-        "92",
-        0
-      ],
-      "segm_detector_opt": [
-        "91",
-        1
-      ]
-    },
-    "class_type": "FaceDetailer",
-    "_meta": {
-      "title": "FaceDetailer"
-    }
-  },
-  "94": {
-    "inputs": {
-      "filename_prefix": "ComfyUI",
-      "images": [
-        "93",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Face enhanced"
-    }
-  },
-  "95": {
-    "inputs": {
-      "filename_prefix": "ComfyUI",
-      "images": [
-        "89",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Hands enhanced"
-    }
-  },
   "128": {
     "inputs": {
       "ascore": 6,
       "width": 1024,
       "height": 1024,
-      "text": "fewer digits, extra body parts, censored, collage, logo, border, badhandv4, paintings, sketches, fingers, (worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality, ((monochrome)), ((grayscale)), skin spots, acnes, skin blemishes, age spot, (outdoor:1.6), backlight,(ugly:1.331), (duplicate:1.331), (morbid:1.21), (mutilated:1.21), (tranny:1.331), mutated hands, (poorly drawn hands:1.5), blurry, (bad anatomy:1.21), (bad proportions:1.331), extra limbs, (disfigured:1.331), lowers, bad hands, missing fingers, extra digit, negative_hand-, out_of_frame, (blue_skirt:1.25), bow_tie, bow, 2boys",
+      "text": "fewer digits, extra body parts, censored, collage, logo, border, badhandv4, paintings, sketches, fingers, (worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality, ((monochrome)), ((grayscale)), skin spots, acnes, skin blemishes, age spot, (outdoor:1.6), backlight,(ugly:1.331), (duplicate:1.331), (morbid:1.21), (mutilated:1.21), (tranny:1.331), mutated hands, (poorly drawn hands:1.5), blurry, (bad anatomy:1.21), (bad proportions:1.331), extra limbs, (disfigured:1.331), lowers, bad hands, missing fingers, extra digit, negative_hand-, out_of_frame",
       "clip": [
         "75",
         1
@@ -859,7 +601,7 @@
       "ascore": 6,
       "width": 1024,
       "height": 1024,
-      "text": "2girls, yuri, nude, pussy, from_behind, fingering_from_behind, hip_focus, pussy_juice, kneeling, spread_legs, (lower_body:1.25), short_hair, 1boy, deepthroat, threesome\nscore_9,score_8_up,score_7_up,score_6_up,score_5_up,score_4_up,source_anime, flat_colors",
+      "text": "stKatrina,1girl,orange_hair,green_eyes,medium_breasts, beach, swimsuit, bikini, full_body, from_side, hand_on_hip, white_bikini, score_9,score_8_up,score_7_up,score_6_up,score_5_up,score_4_up,source_anime, flat_colors",
       "clip": [
         "75",
         1

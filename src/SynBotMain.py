@@ -1483,31 +1483,55 @@ class SynBotPrompt:
             # PORTRAIT vs LANDSCAPE
             if self.availableFormatSizeXL[self.formatIndex] == "1280x720":
                 workflow["5"]["inputs"]["width"] = 1280
-                workflow["5"]["inputs"]["height"] = 720
+                workflow["5"]["inputs"]["height"] = 768
             else:
-                workflow["5"]["inputs"]["width"] = 720
+                workflow["5"]["inputs"]["width"] = 768
                 workflow["5"]["inputs"]["height"] = 1280
             
             # PROMPT
             # We need to re-fix the user prompt and add those loras to the Lora list node instead
             prompt = self.userPrompt
+
+            # extract weight from keywords/tags
+            # make a copy because we'll be modifying the original on the fly
+            promptTags = prompt.split(",")
+            for tag in promptTags:
+                if ":" in tag:
+                    print("Found weighted tag: " + tag)
+                    # This is probably a ComfyList tag, lets replace it and set the passed weight
+                    tag_info = tag.split(":")
+                    lora_info = ComfyList[tag_info[0]].split("|")
+                    if lora_info[0] != "lora_0": # ignore lora_0
+                        workflow["58"]["inputs"][lora_info[0]]["on"] = True 
+                        workflow["58"]["inputs"][lora_info[0]]["strength"] = float(tag_info[1])
+                    prompt = prompt.replace(tag, lora_info[1])
+
+            # Use old tag detection for the rest
             for key in ComfyList.keys():
                 if key in prompt:
-                    print("Found: " + key)
+                    print("Found tag: " + key)
                     lora_info = ComfyList[key].split("|")
-                    workflow["58"]["inputs"][lora_info[0]]["on"] = True 
+                    if lora_info[0] != "lora_0": # ignore lora_0
+                        workflow["58"]["inputs"][lora_info[0]]["on"] = True 
                     prompt = prompt.replace(key, lora_info[1])
 
             
             # The prompt the user typed, with fixed tags for lora
             workflow["65"]["inputs"]["text_g"] = prompt
             workflow["65"]["inputs"]["text_l"] = prompt
+            print(f"PROMPT: {prompt}")
+
+            # Random Seed?
+            if self.seedToUse == -1:
+                self.seedToUse = random.randint(1,4294967294)
+            workflow["76"]["inputs"]["noise_seed"] = self.seedToUse
+
             
-            # print(workflow)
+            print("###############")
+            print(workflow)
+            print("###############")
 
-            # 3) Edit the LORAs
-
-            # 4) Send request to API
+            # 3) Send request to API
             print(f"Sending request to {server_address} ...")
             ws = websocket.WebSocket()
             ws.connect("ws://{}/ws?clientId={}".format(server_address, client_id))
@@ -1540,7 +1564,7 @@ class SynBotPrompt:
             # Post thread
             await self.outputChanel.create_thread(
                 name=f"{self.getTitle()} by {self.ctx.message.author.display_name}", 
-                content=f"{self.ctx.author.mention} generated this ComfyUI image with prompt: {self.ctx.message.jump_url}\n```{self.getPromptWithSeed(-1)}```", 
+                content=f"{self.ctx.author.mention} generated this ComfyUI image with prompt: {self.ctx.message.jump_url}\n```{self.getPromptWithSeed(self.seedToUse)}```", 
                 files=discordFiles,
                 applied_tags=[forumTag]
             )
