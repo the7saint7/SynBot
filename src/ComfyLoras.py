@@ -10,6 +10,7 @@ ComfyList = {
     "CASSIE": "lora_9|stCassie,1girl,blue_eyes,blonde_hair,bangs,eyebrows_visible_through_hair,hair_between_eyes,hair_intakes,long_hair",
     "CIRCE": "lora_10|stCirce,1girl,long_fingernails,long_hair,medium_breasts,nail_polish,purple_nails,sharp_fingernails,solo,very_long_fingernails,lamia,(((snake tail))),monster_girl,slit_pupils,angry,fangs,colored_skin,(demon horns),scales",
     "CONNIE": "lora_11|stConnie,1girl,browm_hair,long_hair,straight_hair,red_eyes,mature_female,aged_up,large_breasts",
+    "CLAUS": "lora_50|stClaus,silver_hair,yellow_eyes",
     "ELIZABETH": "lora_12|stElizabeth,1girl,bangs,breasts,eyebrows_visible_through_hair,hair_bun,long_hair,sidelocks,black_hair,brown_eyes,long_hair",
     "EMILY": "lora_13|stEmily,1girl,red_hair,yellow_eyes,bangs,eyebrows_visible_through_hair,hair_between_eyes,messy_hair,short_hair,spiked_hair",
     "ERIC": "lora_15|stEric,1boy,(black_hair:1.2),red_eyes,eyebrows_visible_through_hair,hair_between_eyes,short_hair,muscular male",

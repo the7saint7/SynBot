@@ -434,6 +434,11 @@
         "lora": "stXL\\stBradGB_XL-v2.safetensors",
         "strength": 0.75
       },
+      "lora_50": {
+        "on": false,
+        "lora": "stXL\\stClaus_XL-v1-000005.safetensors",
+        "strength": 0.75
+      },
       "➕ Add Lora": "",
       "model": [
         "4",
