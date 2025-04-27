@@ -43,6 +43,17 @@ SDXL_List = {
     "YUUNA": "<lora:stYui_XL-v2:.9>, stYuuna, 1girl, purple_eyes, blue_eyes, hair_bun, mature_woman, huge_breasts, aged_up, ",
     "ZOEY": "<lora:stZoey_XL-v1-000005:.9>,stZoey,1girl,petite,small_breasts,blonde hair,long hair,hair bobbles,single braid,green eyes,energy,",
 
+    "ALLISON": "<lora:stAllison_XL-v1:.9>, stAllison, blonde_hair, purple_eyes, huge_breasts",
+    "AUDREY": "<lora:stAudrey_XL-v1:.9>, stAudrey",
+    "CLAUS": "<lora:stClaus_XL-v1-000005:.9>, stClaus, silver_hair, yellow_eyes",
+    "CORNELIA": "<lora:stCornelia_XL-v1-000005:.9>, stCornelia, orange_hair, green_eyes",
+    "DONNA": "<lora:stDonna_XL-v1-000005:.9>, stDonna",
+    "HOLLY": "<lora:stHolly_XL-v1-000005:.9>, stHolly, short_hair, blue_hair, purple_eyes",
+    "JOHN": "<lora:stJohn_XL-v1-000005:.9>, stJohn, short_hair, black_hair, black_eyes",
+    "RACHEL": "<lora:stRachel_XL-v1-000006:1>, stRachel, black_hair, blue_eyes, mature_female, large_breasts",
+    "SAYAKA": "<lora:stSayaka_XL-v6:.9>, stSayaka, pink_hair, blue_eyes, large_breasts",
+    "SCARLET": "<lora:stScarlet_XL-v1-000006:.9>, stScarlet, red_hair, red_eyes",
+
     "ST_SPRITE_STYLE_LOW": "<lora:STXL sprite v3-5:.2>,stsprtstle",
     "ST_SPRITE_STYLE_MID": "<lora:STXL sprite v3-5:.4>,stsprtstle",
     "ST_SPRITE_STYLE_HIGH": "<lora:STXL sprite v3-5:.6>,stsprtstle",
