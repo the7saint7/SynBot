@@ -126,18 +126,6 @@
       "title": "FluxGuidance"
     }
   },
-  "591": {
-    "inputs": {
-      "images": [
-        "598",
-        0
-      ]
-    },
-    "class_type": "PreviewImage",
-    "_meta": {
-      "title": "Preview Image"
-    }
-  },
   "595": {
     "inputs": {
       "width": 1280,
