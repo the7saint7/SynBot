@@ -1,0 +1,296 @@
+{
+  "579": {
+    "inputs": {
+      "conditioning": [
+        "636",
+        0
+      ],
+      "latent": [
+        "585",
+        0
+      ]
+    },
+    "class_type": "ReferenceLatent",
+    "_meta": {
+      "title": "ReferenceLatent"
+    }
+  },
+  "580": {
+    "inputs": {
+      "conditioning": [
+        "636",
+        0
+      ]
+    },
+    "class_type": "ConditioningZeroOut",
+    "_meta": {
+      "title": "ConditioningZeroOut"
+    }
+  },
+  "581": {
+    "inputs": {
+      "samples": [
+        "637",
+        0
+      ],
+      "vae": [
+        "584",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "582": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "581",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "583": {
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "flux",
+      "device": "default"
+    },
+    "class_type": "DualCLIPLoader",
+    "_meta": {
+      "title": "DualCLIPLoader"
+    }
+  },
+  "584": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "585": {
+    "inputs": {
+      "pixels": [
+        "598",
+        0
+      ],
+      "vae": [
+        "584",
+        0
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE Encode"
+    }
+  },
+  "588": {
+    "inputs": {
+      "direction": "right",
+      "match_image_size": true,
+      "spacing_width": 0,
+      "spacing_color": "white",
+      "image1": [
+        "638",
+        0
+      ],
+      "image2": [
+        "639",
+        0
+      ]
+    },
+    "class_type": "ImageStitch",
+    "_meta": {
+      "title": "Image Stitch"
+    }
+  },
+  "590": {
+    "inputs": {
+      "guidance": 2.5,
+      "conditioning": [
+        "579",
+        0
+      ]
+    },
+    "class_type": "FluxGuidance",
+    "_meta": {
+      "title": "FluxGuidance"
+    }
+  },
+  "591": {
+    "inputs": {
+      "images": [
+        "598",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "595": {
+    "inputs": {
+      "width": 1280,
+      "height": 720,
+      "batch_size": 1
+    },
+    "class_type": "EmptySD3LatentImage",
+    "_meta": {
+      "title": "EmptySD3LatentImage"
+    }
+  },
+  "598": {
+    "inputs": {
+      "image": [
+        "588",
+        0
+      ]
+    },
+    "class_type": "FluxKontextImageScale",
+    "_meta": {
+      "title": "FluxKontextImageScale"
+    }
+  },
+  "601": {
+    "inputs": {
+      "boolean": false,
+      "on_true": [
+        "595",
+        0
+      ],
+      "on_false": [
+        "585",
+        0
+      ]
+    },
+    "class_type": "Switch latent [Crystools]",
+    "_meta": {
+      "title": "🪛 Switch latent"
+    }
+  },
+  "636": {
+    "inputs": {
+      "text": "Use image-2 ONLY as the clothing reference and image-1 ONLY as the character reference.\nRecreate the character from image-1 with identical pose, proportions, style, face, and hair.\nReplace their outfit with the outfit from image-2, including colors, textures, patterns, and accessories.\nblue hospital gown",
+      "clip": [
+        "707",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Positive Prompt)"
+    }
+  },
+  "637": {
+    "inputs": {
+      "seed": 883929524479146,
+      "steps": 20,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "707",
+        0
+      ],
+      "positive": [
+        "590",
+        0
+      ],
+      "negative": [
+        "580",
+        0
+      ],
+      "latent_image": [
+        "601",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "638": {
+    "inputs": {
+      "image": "pasted/image (246).png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "639": {
+    "inputs": {
+      "image": "pasted/image (247).png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "651": {
+    "inputs": {
+      "model_path": "svdq-int4_r32-flux.1-kontext-dev.safetensors",
+      "cache_threshold": 0,
+      "attention": "nunchaku-fp16",
+      "cpu_offload": "auto",
+      "device_id": 0,
+      "data_type": "bfloat16",
+      "i2f_mode": "enabled"
+    },
+    "class_type": "NunchakuFluxDiTLoader",
+    "_meta": {
+      "title": "Nunchaku FLUX DiT Loader"
+    }
+  },
+  "705": {
+    "inputs": {
+      "lora_name": "FLUX.1-Turbo-Alpha.safetensors",
+      "lora_strength": 0,
+      "model": [
+        "651",
+        0
+      ]
+    },
+    "class_type": "NunchakuFluxLoraLoader",
+    "_meta": {
+      "title": "Nunchaku FLUX LoRA Loader"
+    }
+  },
+  "707": {
+    "inputs": {
+      "PowerLoraLoaderHeaderWidget": {
+        "type": "PowerLoraLoaderHeaderWidget"
+      },
+      "lora_1": {
+        "on": false,
+        "lora": "tosSyn_XL-000001.safetensors",
+        "strength": 0.7
+      },
+      "➕ Add Lora": "",
+      "model": [
+        "705",
+        0
+      ],
+      "clip": [
+        "583",
+        0
+      ]
+    },
+    "class_type": "Power Lora Loader (rgthree)",
+    "_meta": {
+      "title": "Power Lora Loader (rgthree)"
+    }
+  }
+}

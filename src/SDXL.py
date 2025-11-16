@@ -40,7 +40,7 @@ SDXL_List = {
     "TORI": "<lora:stTori_XL-v1-000006:.9>, stTori,1girl,folded_ponytail,hair_ornament,hair_over_one_eye,large_breasts,grey_hair,yellow_eyes,",
     "VANESSA": "<lora:stVanessa_XL-v2:0.75>, stVanessa,1girl,red_hair,ponytail,medium_breasts,blue_eyes,chocker,",
     "YUI": "<lora:stYui_XL-v1-000005:.75>, stYui, 1girl,purple_hair,short_bangs, long_hair,straight_hair,braid,hair ribbon,red ribbon,purple_eyes,huge_breasts,",
-    "YUUNA": "<lora:stYui_XL-v2:.9>, stYuuna, 1girl, purple_eyes, blue_eyes, hair_bun, mature_woman, huge_breasts, aged_up, ",
+    "YUUNA": "<lora:stYuuna_XL-v2:.9>, stYuuna, 1girl, purple_eyes, blue_eyes, hair_bun, mature_woman, huge_breasts, aged_up, ",
     "ZOEY": "<lora:stZoey_XL-v1-000005:.9>,stZoey,1girl,petite,small_breasts,blonde hair,long hair,hair bobbles,single braid,green eyes,energy,",
 
     "ALLISON": "<lora:stAllison_XL-v1:.9>, stAllison, blonde_hair, purple_eyes, huge_breasts",

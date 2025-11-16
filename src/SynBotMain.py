@@ -104,6 +104,7 @@ class SynBotPrompt:
         self.userBaseImage = None
         self.userControlNetImage = None
         self.userMaskImage = None
+        self.userOutfitImage = None
         
         # outfits
         self.outfitsCharacter = None
@@ -142,7 +143,7 @@ class SynBotPrompt:
         message = str(self.ctx.message.content)
 
         # Remove all possible prefixes
-        prefixes = ["!Syn-txt2img", "!Syn-img2img", "!Syn-inpaint", "!Syn-outfits", "!Syn2-txt2img", "!Syn2-img2img", "!Syn2-inpaint", "!Syn2-outfits", "!Syn-birth", "!Syn2-birth", "!Syn-expressions", "!Syn2-expressions", "!Syn-removeBG", "!Syn2-removeBG", "!Syn-superHiRez", "!Syn2-superHiRez", "!Syn-mask", "!Syn2-mask", "!Syn-sequence", "!Syn2-sequence", "!Syn-sprite", "!Syn2-sprite"]
+        prefixes = ["!Syn-txt2img", "!Syn-img2img", "!Syn-inpaint", "!Syn-outfits", "!Syn2-txt2img", "!Syn2-img2img", "!Syn2-inpaint", "!Syn2-outfits", "!Syn-birth", "!Syn2-birth", "!Syn-expressions", "!Syn2-expressions", "!Syn-removeBG", "!Syn2-removeBG", "!Syn-superHiRez", "!Syn2-superHiRez", "!Syn-mask", "!Syn2-mask", "!Syn-sequence", "!Syn2-sequence", "!Syn-sprite", "!Syn2-sprite", "!Syn-outfit2.0", "!Syn2-outfit2.0"]
         for prefix in prefixes:
             message = message.removeprefix(prefix)
         
@@ -244,6 +245,21 @@ class SynBotPrompt:
             else:
                 self.denoise = .50
                 print(f"denoise parameter defaulting to 0.5")
+
+        ###### OUTFIT2.0 specific init
+        elif self.type == "outfit2.0":
+            attachmentCount = len(self.ctx.message.attachments)
+            if attachmentCount != 2:
+                self.errorMsg = f"{self.ctx.author.mention} **outfit2.0** requires exactly **2** image attachments (base and outfit)."
+                self.isValid = False
+                return
+
+            self.loadUserSubmittedImages()
+            if self.userBaseImage is None or self.userControlNetImage is None:
+                self.errorMsg = "Could not read the provided outfit images. Request stopped."
+                self.isValid = False
+                return
+            self.userOutfitImage = self.userControlNetImage
 
 
         ###### SEQUENCE specific init
@@ -1466,7 +1482,81 @@ class SynBotPrompt:
                 "height": 1280,
                 "restore_faces": False
             }
-            
+
+        #########################        OUTFIT2.0         #####################################
+        elif self.type == "outfit2.0":
+
+            if self.userBaseImage is None or self.userOutfitImage is None:
+                await self.ctx.send(f"{self.ctx.author.mention} Outfit2.0 could not read the provided images.")
+                return
+
+            workflow_path = os.path.join(self.getPath(), "comfyui_outfit20.json")
+            if not os.path.exists(workflow_path):
+                await self.ctx.send(f"{self.ctx.author.mention} Outfit2.0 workflow file **{workflow_path}** is missing.")
+                return
+
+            with open(workflow_path, encoding='utf-8') as workflow_data:
+                workflow_raw = json.load(workflow_data)
+
+            if "nodes" in workflow_raw:
+                await self.ctx.send(f"{self.ctx.author.mention} Outfit2.0 workflow must be exported in **API format** (Save -> API Format).")
+                return
+
+            workflow = workflow_raw
+
+            try:
+                base_upload = await self.upload_image_to_comfy(self.userBaseImage, f"{self.ctx.message.id}_base.png")
+                outfit_upload = await self.upload_image_to_comfy(self.userOutfitImage, f"{self.ctx.message.id}_outfit.png")
+            except Exception as e:
+                print(f"Failed to upload Outfit2.0 images to Comfy: {e}")
+                await self.ctx.send(f"{self.ctx.author.mention} Outfit2.0 could not upload the supplied images to ComfyUI.")
+                return
+
+            base_node = workflow.get("638")
+            outfit_node = workflow.get("639")
+            if base_node is None or outfit_node is None:
+                await self.ctx.send(f"{self.ctx.author.mention} Outfit2.0 workflow is missing nodes **638** or **639**.")
+                return
+
+            base_node["inputs"]["image"] = base_upload["name"]
+            outfit_node["inputs"]["image"] = outfit_upload["name"]
+
+            prompt_node = workflow.get("636")
+            if prompt_node is None:
+                await self.ctx.send(f"{self.ctx.author.mention} Outfit2.0 workflow is missing node **636** for text prompt.")
+                return
+            prompt_text = self.fixedPrompt if self.fixedPrompt else self.userPrompt
+            prompt_node["inputs"]["text"] = prompt_text
+
+            ws = websocket.WebSocket()
+            ws.connect("ws://{}/ws?clientId={}".format(server_address, client_id))
+            images = self.get_images(ws, workflow)
+            ws.close()
+
+            discordFiles = []
+            for node_id, node_images in images.items():
+                for idx, image_data in enumerate(node_images):
+                    bytes = io.BytesIO(image_data)
+                    bytes.seek(0)
+                    discordFile = discord.File(bytes, filename=f"{self.ctx.message.id}-outfit-{node_id}-{idx}.png")
+                    discordFiles.append(discordFile)
+
+            tags = self.outputChanel.available_tags
+            forumTag = None
+            for tag in tags:
+                if tag.name.lower() == self.type.lower():
+                    forumTag = tag
+                    break
+
+            await self.outputChanel.create_thread(
+                name=f"Outfit 2.0 by {self.ctx.message.author.display_name}",
+                content=f"{self.ctx.author.mention} generated this Outfit 2.0 image using {self.ctx.message.jump_url}",
+                files=discordFiles,
+                applied_tags=[forumTag] if forumTag else []
+            )
+
+            return
+
         #########################        COMFY         #####################################
         elif self.type == "comfy":
 
@@ -2296,6 +2386,29 @@ class SynBotPrompt:
             output_images[node_id] = images_output
 
         return output_images
+
+    async def upload_image_to_comfy(self, image_b64, filename):
+        if image_b64 is None:
+            raise ValueError("No image data provided for upload.")
+
+        upload_url = "http://{}/upload/image".format(server_address)
+        if "," in image_b64:
+            encoded_image = image_b64.split(",", 1)[1]
+        else:
+            encoded_image = image_b64
+        image_bytes = base64.b64decode(encoded_image)
+        form = aiohttp.FormData()
+        form.add_field('image', image_bytes, filename=filename, content_type='application/octet-stream')
+        form.add_field('type', 'input')
+        form.add_field('overwrite', 'true')
+
+        session_timeout = aiohttp.ClientTimeout(total=60, sock_connect=60, sock_read=60)
+        async with aiohttp.ClientSession(loop=self.ctx.bot.loop, timeout=session_timeout) as session:
+            async with session.post(upload_url, data=form) as response:
+                if response.status != 200:
+                    body = await response.text()
+                    raise RuntimeError(f"Upload returned {response.status}: {body}")
+                return await response.json()
 
 def parse_shortcut_str(value:str) -> str:
     return value.strip().replace('\n', '')

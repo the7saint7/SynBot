@@ -94,6 +94,8 @@ async def addToQueue(ctx, newPrompt: SynBotPrompt):
         await ctx.send(f"**Creating new character** for {ctx.message.author.display_name}, on **{synBot}**.")
     elif newPrompt.type == "comfy":
         await ctx.send(f"Queuing request from {ctx.message.author.display_name} , in " + newPrompt.getFormatString() + " format, on " + synBot + ".")
+    elif newPrompt.type == "outfit2.0":
+        await ctx.send(f"{ctx.message.author.display_name}, Outfit 2.0 request received on {synBot}. Please keep both reference images available in the source message.")
     else:
         await ctx.send(f"Queuing request from {ctx.message.author.display_name}, on " + synBot + ".")
     ################ END resume ################################
@@ -150,6 +152,11 @@ async def sequence(ctx):
 @bot.command()
 async def sprite(ctx):
     await executePrompt(ctx, type="sprite")
+
+# Outfit 2.0 (Comfy)
+@bot.command(name="outfit2.0")
+async def outfit2_0(ctx):
+    await executePrompt(ctx, type="outfit2.0")
 
 # CUMFYUI
 @bot.command()
