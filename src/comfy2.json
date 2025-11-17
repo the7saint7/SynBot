@@ -1,0 +1,704 @@
+{
+  "4": {
+    "inputs": {
+      "ckpt_name": "prefectPonyXL_v2CleanedStyle.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint BASE"
+    }
+  },
+  "5": {
+    "inputs": {
+      "width": 768,
+      "height": 1280,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent Image"
+    }
+  },
+  "8": {
+    "inputs": {
+      "samples": [
+        "141",
+        0
+      ],
+      "vae": [
+        "4",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "30": {
+    "inputs": {
+      "threshold": 0.5,
+      "torchscript_jit": "default",
+      "image": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "InspyrenetRembgAdvanced",
+    "_meta": {
+      "title": "Inspyrenet Rembg Advanced"
+    }
+  },
+  "42": {
+    "inputs": {
+      "samples": [
+        "49",
+        0
+      ],
+      "vae": [
+        "4",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "43": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "52",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "44": {
+    "inputs": {
+      "kernel_size": 50,
+      "sigma": 25,
+      "mask": [
+        "30",
+        1
+      ]
+    },
+    "class_type": "ImpactGaussianBlurMask",
+    "_meta": {
+      "title": "Gaussian Blur Mask"
+    }
+  },
+  "45": {
+    "inputs": {
+      "noise_mask": true,
+      "positive": [
+        "139",
+        0
+      ],
+      "negative": [
+        "140",
+        0
+      ],
+      "vae": [
+        "4",
+        2
+      ],
+      "pixels": [
+        "51",
+        1
+      ],
+      "mask": [
+        "51",
+        2
+      ]
+    },
+    "class_type": "InpaintModelConditioning",
+    "_meta": {
+      "title": "InpaintModelConditioning"
+    }
+  },
+  "47": {
+    "inputs": {
+      "mask": [
+        "44",
+        0
+      ]
+    },
+    "class_type": "MaskToImage",
+    "_meta": {
+      "title": "Convert Mask to Image"
+    }
+  },
+  "48": {
+    "inputs": {
+      "images": [
+        "47",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "49": {
+    "inputs": {
+      "seed": 69,
+      "steps": 20,
+      "cfg": 5,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "karras",
+      "denoise": 0.5000000000000001,
+      "model": [
+        "58",
+        0
+      ],
+      "positive": [
+        "45",
+        0
+      ],
+      "negative": [
+        "45",
+        1
+      ],
+      "latent_image": [
+        "45",
+        2
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "51": {
+    "inputs": {
+      "context_expand_pixels": 20,
+      "context_expand_factor": 1,
+      "fill_mask_holes": true,
+      "blur_mask_pixels": 16,
+      "invert_mask": false,
+      "blend_pixels": 16,
+      "rescale_algorithm": "bicubic",
+      "mode": "ranged size",
+      "force_width": 1024,
+      "force_height": 1024,
+      "rescale_factor": 1,
+      "min_width": 1280,
+      "min_height": 1280,
+      "max_width": 2000,
+      "max_height": 2000,
+      "padding": 32,
+      "image": [
+        "8",
+        0
+      ],
+      "mask": [
+        "44",
+        0
+      ]
+    },
+    "class_type": "InpaintCrop",
+    "_meta": {
+      "title": "(OLD 💀, use the new ✂️ Inpaint Crop node)"
+    }
+  },
+  "52": {
+    "inputs": {
+      "rescale_algorithm": "bislerp",
+      "stitch": [
+        "51",
+        0
+      ],
+      "inpainted_image": [
+        "42",
+        0
+      ]
+    },
+    "class_type": "InpaintStitch",
+    "_meta": {
+      "title": "(OLD 💀, use the new ✂️ Inpaint Stitch node)"
+    }
+  },
+  "58": {
+    "inputs": {
+      "PowerLoraLoaderHeaderWidget": {
+        "type": "PowerLoraLoaderHeaderWidget"
+      },
+      "lora_1": {
+        "on": true,
+        "lora": "STXL sprite v3-5.safetensors",
+        "strength": 0.1
+      },
+      "lora_2": {
+        "on": false,
+        "lora": "stXL\\stAbby_XL-v1.safetensors",
+        "strength": 0.1
+      },
+      "lora_3": {
+        "on": false,
+        "lora": "stXL\\stAlex_XL-v1.safetensors",
+        "strength": 1
+      },
+      "lora_4": {
+        "on": false,
+        "lora": "stXL\\stAmy_XL-v1.safetensors",
+        "strength": 1
+      },
+      "lora_5": {
+        "on": false,
+        "lora": "stXL\\stAnuja_XL-v1.safetensors",
+        "strength": 1
+      },
+      "lora_6": {
+        "on": false,
+        "lora": "stXL\\stAudreyIdol_XL-v1.safetensors",
+        "strength": 0.75
+      },
+      "lora_7": {
+        "on": false,
+        "lora": "stXL\\stBradGB_XL-v2.safetensors",
+        "strength": 0.9
+      },
+      "lora_8": {
+        "on": false,
+        "lora": "stXL\\stCarrie_XL-v1-000005.safetensors",
+        "strength": 1
+      },
+      "lora_9": {
+        "on": false,
+        "lora": "stXL\\stCassie_XL-v1-000005.safetensors",
+        "strength": 0.8
+      },
+      "lora_10": {
+        "on": false,
+        "lora": "stXL\\stCirce_XL-v1.safetensors",
+        "strength": 1
+      },
+      "lora_11": {
+        "on": false,
+        "lora": "stXL\\stConnie_XL-v1-000005.safetensors",
+        "strength": 0.8
+      },
+      "lora_12": {
+        "on": false,
+        "lora": "stXL\\stElizabeth_XL-v1-000005.safetensors",
+        "strength": 0.8
+      },
+      "lora_13": {
+        "on": false,
+        "lora": "stXL\\stEmily_XL-v1-000005.safetensors",
+        "strength": 1
+      },
+      "lora_14": {
+        "on": false,
+        "lora": "stXL\\stEricGB_XL-v1-000005.safetensors",
+        "strength": 0.9
+      },
+      "lora_15": {
+        "on": false,
+        "lora": "stXL\\stEric_XL-v1-000005.safetensors",
+        "strength": 0.2
+      },
+      "lora_16": {
+        "on": false,
+        "lora": "stXL\\stFlavia_XL-v1-000005.safetensors",
+        "strength": 0.85
+      },
+      "lora_17": {
+        "on": false,
+        "lora": "stXL\\stGenny_XL-v1-000005.safetensors",
+        "strength": 1
+      },
+      "lora_18": {
+        "on": false,
+        "lora": "stXL\\stIrene_XL-v1-000005.safetensors",
+        "strength": 0.9
+      },
+      "lora_19": {
+        "on": false,
+        "lora": "stXL\\stIzuna_XL-v1-000005.safetensors",
+        "strength": 1
+      },
+      "lora_20": {
+        "on": false,
+        "lora": "stXL\\stJack_XL-v1-000006.safetensors",
+        "strength": 0.55
+      },
+      "lora_21": {
+        "on": false,
+        "lora": "stXL\\stJane_XL-v1-000006.safetensors",
+        "strength": 0.75
+      },
+      "lora_22": {
+        "on": false,
+        "lora": "stXL\\stKatrina_XL.safetensors",
+        "strength": 0.5
+      },
+      "lora_23": {
+        "on": false,
+        "lora": "stXL\\stKiyo_XL-v1-000006.safetensors",
+        "strength": 0.9
+      },
+      "lora_24": {
+        "on": false,
+        "lora": "stXL\\stKiyoshi_XL-v1-000006.safetensors",
+        "strength": 0.9
+      },
+      "lora_25": {
+        "on": false,
+        "lora": "stXL\\stKyoko_XL-v1-000006.safetensors",
+        "strength": 0.3
+      },
+      "lora_26": {
+        "on": false,
+        "lora": "stXL\\stLaura_XL-v1-000006.safetensors",
+        "strength": 1
+      },
+      "lora_27": {
+        "on": false,
+        "lora": "stXL\\stLeona_XL-v1-000006.safetensors",
+        "strength": 0.85
+      },
+      "lora_28": {
+        "on": false,
+        "lora": "stXL\\stMaria_XL-v1-000006.safetensors",
+        "strength": 0.8
+      },
+      "lora_29": {
+        "on": false,
+        "lora": "stXL\\stMaurice_XL-v1-000006.safetensors",
+        "strength": 1
+      },
+      "lora_30": {
+        "on": false,
+        "lora": "stXL\\stMel_XL-v1-000006.safetensors",
+        "strength": 0.8
+      },
+      "lora_31": {
+        "on": false,
+        "lora": "stXL\\stMichelle_XL-v1-000006.safetensors",
+        "strength": 1
+      },
+      "lora_32": {
+        "on": false,
+        "lora": "stXL\\stNaomi_XL-v1-000006.safetensors",
+        "strength": 1
+      },
+      "lora_33": {
+        "on": false,
+        "lora": "stXL\\stPhila+Mina_XL-v1-000006.safetensors",
+        "strength": 1
+      },
+      "lora_34": {
+        "on": false,
+        "lora": "stXL\\stRiley_XL-v1-000006.safetensors",
+        "strength": 0.85
+      },
+      "lora_35": {
+        "on": false,
+        "lora": "stXL\\stRita_XL-v1-000006.safetensors",
+        "strength": 0.8
+      },
+      "lora_36": {
+        "on": false,
+        "lora": "stXL\\stSandra_XL-v1.safetensors",
+        "strength": 18.48000030517578
+      },
+      "lora_37": {
+        "on": false,
+        "lora": "stXL\\stSetsuna_XL-v1.safetensors",
+        "strength": 0.9
+      },
+      "lora_38": {
+        "on": false,
+        "lora": "stXL\\stTori_XL-v1-000006.safetensors",
+        "strength": 0.75
+      },
+      "lora_39": {
+        "on": false,
+        "lora": "stXL_toFix\\stAllison_XL-v1.safetensors",
+        "strength": 0.85
+      },
+      "lora_40": {
+        "on": false,
+        "lora": "stXL_toFix\\stAudrey_XL-v1.safetensors",
+        "strength": 1
+      },
+      "lora_41": {
+        "on": false,
+        "lora": "stXL_toFix\\stClaus_XL-v1-000005.safetensors",
+        "strength": 1
+      },
+      "lora_42": {
+        "on": false,
+        "lora": "stXL_toFix\\stCornelia_XL-v1-000005.safetensors",
+        "strength": 0.85
+      },
+      "lora_43": {
+        "on": false,
+        "lora": "stXL_toFix\\stDonna_XL-v1-000005.safetensors",
+        "strength": 0.85
+      },
+      "lora_44": {
+        "on": false,
+        "lora": "stXL_toFix\\stHolly_XL-v1-000005.safetensors",
+        "strength": 0.8
+      },
+      "lora_45": {
+        "on": false,
+        "lora": "stXL_toFix\\stJohn_XL-v1-000005.safetensors",
+        "strength": 0.8
+      },
+      "lora_46": {
+        "on": false,
+        "lora": "stXL_toFix\\stRachel_XL-v1-000006.safetensors",
+        "strength": 0.8
+      },
+      "lora_47": {
+        "on": false,
+        "lora": "stXL_toFix\\stSayaka_XL-v6.safetensors",
+        "strength": 0.75
+      },
+      "lora_48": {
+        "on": false,
+        "lora": "stXL_toFix\\stScarlet_XL-v1-000006.safetensors",
+        "strength": 0.9
+      },
+      "lora_49": {
+        "on": true,
+        "lora": "stZoey_XL-v1-000006.safetensors",
+        "strength": 0.65
+      },
+      "lora_50": {
+        "on": false,
+        "lora": "stYui_XL-v1-000005.safetensors",
+        "strength": 0.65
+      },
+      "lora_51": {
+        "on": false,
+        "lora": "stXL\\stBrad_XL-v1-000005.safetensors",
+        "strength": 0.85
+      },
+      "lora_52": {
+        "on": false,
+        "lora": "TKUniform_Snom_V3.safetensors",
+        "strength": 0.1
+      },
+      "lora_53": {
+        "on": false,
+        "lora": "stFace-000001.safetensors",
+        "strength": 0.2
+      },
+      "lora_54": {
+        "on": false,
+        "lora": "Female pov v4.safetensors",
+        "strength": 1
+      },
+      "lora_55": {
+        "on": false,
+        "lora": "partially_underwater_shot_v0.1-pony-dim8fp16.safetensors",
+        "strength": 0.85
+      },
+      "lora_56": {
+        "on": false,
+        "lora": "tosSyn_XL-000001.safetensors",
+        "strength": 0.65
+      },
+      "lora_57": {
+        "on": false,
+        "lora": "Saya-fingering from behind.safetensors",
+        "strength": 1
+      },
+      "lora_58": {
+        "on": false,
+        "lora": "RavenTT.safetensors",
+        "strength": 1
+      },
+      "lora_59": {
+        "on": false,
+        "lora": "HotDogPonyXL-08.safetensors",
+        "strength": 0.2
+      },
+      "lora_60": {
+        "on": false,
+        "lora": "phood_PNY.safetensors",
+        "strength": 0.5
+      },
+      "lora_61": {
+        "on": false,
+        "lora": "Concept_Hearth_pupil__bubble.safetensors",
+        "strength": 0.5
+      },
+      "lora_62": {
+        "on": false,
+        "lora": "Shortstack-10.safetensors",
+        "strength": 0.1
+      },
+      "lora_63": {
+        "on": false,
+        "lora": "pose mirror-000008.safetensors",
+        "strength": 0.3
+      },
+      "lora_64": {
+        "on": false,
+        "lora": "Possessed_by_another_person.safetensors",
+        "strength": 0.75
+      },
+      "lora_65": {
+        "on": false,
+        "lora": "Pony_XL_Full-Scale_Anime_Figurines_r1.safetensors",
+        "strength": 0.75
+      },
+      "lora_66": {
+        "on": false,
+        "lora": "inflatables3-000016.safetensors",
+        "strength": 1.5
+      },
+      "lora_67": {
+        "on": false,
+        "lora": "SEXDOLLS_XL.safetensors",
+        "strength": 0.85
+      },
+      "lora_68": {
+        "on": false,
+        "lora": "blowup doll.safetensors",
+        "strength": 1
+      },
+      "lora_69": {
+        "on": false,
+        "lora": "Sexdolls.safetensors",
+        "strength": 1
+      },
+      "lora_70": {
+        "on": false,
+        "lora": "living-doll-ponyxl-v1.safetensors",
+        "strength": 1
+      },
+      "lora_71": {
+        "on": false,
+        "lora": "Pooltoy_XL_for_Pony.safetensors",
+        "strength": 1
+      },
+      "lora_72": {
+        "on": false,
+        "lora": "Female_Pov_Body_v2_ALL_XL_by_UOC.safetensors",
+        "strength": 0.45
+      },
+      "lora_73": {
+        "on": false,
+        "lora": "Candysprite style.safetensors",
+        "strength": 0.3
+      },
+      "lora_74": {
+        "on": true,
+        "lora": "flat.safetensors",
+        "strength": 0.5
+      },
+      "lora_75": {
+        "on": false,
+        "lora": "MatureFemalePony.safetensors",
+        "strength": 0.4
+      },
+      "lora_76": {
+        "on": false,
+        "lora": "None",
+        "strength": 1
+      },
+      "➕ Add Lora": "",
+      "model": [
+        "4",
+        0
+      ],
+      "clip": [
+        "4",
+        1
+      ]
+    },
+    "class_type": "Power Lora Loader (rgthree)",
+    "_meta": {
+      "title": "Power Lora Loader (rgthree)"
+    }
+  },
+  "82": {
+    "inputs": {
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "138": {
+    "inputs": {
+      "vae_name": "diffusion_pytorch_model.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "139": {
+    "inputs": {
+      "text": "masterpiece,best quality, (flat_colors:1.5), (amagai_yukino:1.25), minimalist, anime_style, (thick_lines:1.25), (flat_color:1.4)\n\nscore_9, (source_pony:-1.0), (source_furry:-1.0), source_anime\n\nsimple_background, grey_background, cowboy_shot, (long_hair:1.25)\n1girl, stZoey, blonde_hair, green_eyes, straight_hair, (hairband:1.25), (hair_slicked_back:1.25), scrunchy, small_breasts, (mature_female:1.25), wide_hips, expressionless, nude, nipples, pussy, navel, housewife, \n\nhands_on_own_hips",
+      "clip": [
+        "58",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "POSITIVE"
+    }
+  },
+  "140": {
+    "inputs": {
+      "text": "worst quality, bad hands,bad quality,bad anatomy,jpeg artifacts,signature,scan,watermark,old,oldest\n(hair_over_eyes:1.25), shiny_skin, shiny_hair\n\nribs, shadow, realistic, hair_bobbles, medium_breasts, large_breasts, (hair_over_shoulder:1.25), braid, ponytail, forehead_mark",
+      "clip": [
+        "58",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "NEGATIVE"
+    }
+  },
+  "141": {
+    "inputs": {
+      "seed": 2493,
+      "steps": 20,
+      "cfg": 7,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        "58",
+        0
+      ],
+      "positive": [
+        "139",
+        0
+      ],
+      "negative": [
+        "140",
+        0
+      ],
+      "latent_image": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  }
+}

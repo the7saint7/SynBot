@@ -1564,7 +1564,7 @@ class SynBotPrompt:
             # I need to call a totally different API.
 
             # 1) Load the workflow json
-            with open('comfyui.json', encoding='utf-8') as workflow_data:
+            with open('comfy2.json', encoding='utf-8') as workflow_data:
                 workflow = json.load(workflow_data)
                 workflow_data.close()
                 # print(workflow)
@@ -1607,14 +1607,13 @@ class SynBotPrompt:
 
             
             # The prompt the user typed, with fixed tags for lora
-            workflow["65"]["inputs"]["text_g"] = prompt
-            workflow["65"]["inputs"]["text_l"] = prompt
+            workflow["139"]["inputs"]["text"] = prompt
             print(f"PROMPT: {prompt}")
 
             # Random Seed?
             if self.seedToUse == -1:
                 self.seedToUse = random.randint(1,4294967294)
-            workflow["76"]["inputs"]["noise_seed"] = self.seedToUse
+            workflow["141"]["inputs"]["seed"] = self.seedToUse
 
             
             print("###############")
