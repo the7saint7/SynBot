@@ -1607,8 +1607,19 @@ class SynBotPrompt:
 
             
             # The prompt the user typed, with fixed tags for lora
-            workflow["139"]["inputs"]["text"] = prompt
+            base_positive = workflow["139"]["inputs"].get("text", "")
+            if base_positive and not base_positive.endswith("\n"):
+                base_positive += "\n"
+            workflow["139"]["inputs"]["text"] = f"{base_positive}{prompt}" if base_positive else prompt
             print(f"PROMPT: {prompt}")
+
+            # Negative prompt gets appended as well (if provided)
+            negative_prompt = self.fixedNegative.strip()
+            if negative_prompt:
+                base_negative = workflow["140"]["inputs"].get("text", "")
+                if base_negative and not base_negative.endswith("\n"):
+                    base_negative += "\n"
+                workflow["140"]["inputs"]["text"] = f"{base_negative}{negative_prompt}" if base_negative else negative_prompt
 
             # Random Seed?
             if self.seedToUse == -1:

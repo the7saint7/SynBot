@@ -152,7 +152,7 @@
       "cfg": 5,
       "sampler_name": "euler_ancestral",
       "scheduler": "karras",
-      "denoise": 0.5000000000000001,
+      "denoise": 0.5,
       "model": [
         "195",
         0
@@ -445,7 +445,7 @@
         "strength": 0.8
       },
       "lora_44": {
-        "on": true,
+        "on": false,
         "lora": "stXL_toFix\\stJohn_XL-v1-000005.safetensors",
         "strength": 0.8
       },
@@ -772,7 +772,7 @@
   },
   "139": {
     "inputs": {
-      "text": "masterpiece,best quality, sharp_focus, best_anatomy, hires, (colorful), beautiful, 4k, magical, adorable, (extraordinary:0.6), (flat_color:1.4), anime\n\nscore_9,score_8_up,score_7_up,score_6_up,score_5_up,score_4_up,source_anime,\n\n1girl, stJohn, black_hair, black_eyes, long_hair, large_breasts, wide_hips, smile, on_back, from_above, upsidedown, bridal_underwear, tighthighs, white lingery, on_bed, bedroom, night, interior, fireworks, blush, (dutch_angle:1.25)",
+      "text": "masterpiece,best quality, sharp_focus, best_anatomy, hires, (colorful), beautiful, 4k, magical, adorable, (extraordinary:0.6), (flat_color:1.4), anime\n\nscore_9,score_8_up,score_7_up,score_6_up,score_5_up,score_4_up,source_anime,\n\n",
       "clip": [
         "195",
         1
@@ -785,7 +785,7 @@
   },
   "140": {
     "inputs": {
-      "text": "worst quality, bad hands,bad quality,bad anatomy,jpeg artifacts,signature,scan,watermark,old,oldest\n\nheadgear",
+      "text": "worst quality, bad hands,bad quality,bad anatomy,jpeg artifacts,signature,scan,watermark,old,oldest\n\n",
       "clip": [
         "195",
         1
