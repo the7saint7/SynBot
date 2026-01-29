@@ -143,7 +143,7 @@ class SynBotPrompt:
         message = str(self.ctx.message.content)
 
         # Remove all possible prefixes
-        prefixes = ["!Syn-txt2img", "!Syn-img2img", "!Syn-inpaint", "!Syn-outfits", "!Syn2-txt2img", "!Syn2-img2img", "!Syn2-inpaint", "!Syn2-outfits", "!Syn-birth", "!Syn2-birth", "!Syn-expressions", "!Syn2-expressions", "!Syn-removeBG", "!Syn2-removeBG", "!Syn-superHiRez", "!Syn2-superHiRez", "!Syn-mask", "!Syn2-mask", "!Syn-sequence", "!Syn2-sequence", "!Syn-sprite", "!Syn2-sprite", "!Syn-outfit2.0", "!Syn2-outfit2.0"]
+        prefixes = ["!Syn-txt2img", "!Syn-img2img", "!Syn-inpaint", "!Syn-outfits", "!Syn2-txt2img", "!Syn2-img2img", "!Syn2-inpaint", "!Syn2-outfits", "!Syn-birth", "!Syn2-birth", "!Syn-expressions", "!Syn2-expressions", "!Syn-removeBG", "!Syn2-removeBG", "!Syn-superHiRez", "!Syn2-superHiRez", "!Syn-mask", "!Syn2-mask", "!Syn-sequence", "!Syn2-sequence", "!Syn-sprite", "!Syn2-sprite", "!Syn-outfit2.0", "!Syn2-outfit2.0", "!Syn-comfy", "!Syn2-comfy"]
         for prefix in prefixes:
             message = message.removeprefix(prefix)
         
@@ -1564,7 +1564,7 @@ class SynBotPrompt:
             # I need to call a totally different API.
 
             # 1) Load the workflow json
-            with open('comfy2.json', encoding='utf-8') as workflow_data:
+            with open('Syn+Kiyoshi(API).json', encoding='utf-8') as workflow_data:
                 workflow = json.load(workflow_data)
                 workflow_data.close()
                 # print(workflow)
