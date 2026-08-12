@@ -43,6 +43,22 @@ async def on_ready():
     aiNumInstruction = "2" if syn2 else ""
     channel_id = int(os.getenv("DEV_CHANNEL")) if env_dev else int(os.getenv("INPUT_CHANEL"))
     channel = bot.get_channel(channel_id)
+    if channel is None:
+        try:
+            # get_channel() only checks discord.py's local cache. Fetch from the
+            # API as a fallback in case the channel was not cached on startup.
+            channel = await bot.fetch_channel(channel_id)
+        except (discord.NotFound, discord.Forbidden) as exc:
+            print(
+                f"Unable to access Discord channel {channel_id}. Check the "
+                f"channel ID and the bot's View Channel/Send Messages permissions: {exc}"
+            )
+            return
+
+    if not hasattr(channel, "send"):
+        print(f"Discord channel {channel_id} does not support sending messages.")
+        return
+
     await channel.send(f"**Syn-Bot{aiNumInstruction} AI** is online and ready to generate some images. Type **!Syn{aiNumInstruction}-helpMe** for instructions!")
 
 
